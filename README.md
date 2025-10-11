@@ -3,6 +3,7 @@
 ### ENGR 491 – Engineering Capstone I  
 **Regent University | Fall 2025**  
 **Team Members:** Riley Pence, Alex O'Neal, William Denson, Elijah Atkinson
+
 **Instructor:** Dr. Alfa Nyandoro  
 
 ---
