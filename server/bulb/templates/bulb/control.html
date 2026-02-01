@@ -1,0 +1,65 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Manual Light Control</title>
+  <style>
+    body { font-family: sans-serif; padding: 24px; }
+    .state { font-size: 24px; margin-bottom: 12px; }
+    button { padding: 10px 16px; margin-right: 8px; }
+    .on { color: green; }
+    .off { color: #b00; }
+  </style>
+</head>
+<body>
+  <h1>Manual Light Control</h1>
+
+  <div class="state">
+    Current State:
+    <span id="stateText" class="{{ state.is_on|yesno:'on,off' }}">
+      {{ state.is_on|yesno:"ON,OFF" }}
+    </span>
+  </div>
+
+  <button id="onBtn">Turn ON</button>
+  <button id="offBtn">Turn OFF</button>
+
+  <p id="status"></p>
+
+  <script>
+    function getCookie(name) {
+      const value = `; ${document.cookie}`;
+      const parts = value.split(`; ${name}=`);
+      if (parts.length === 2) return parts.pop().split(';').shift();
+    }
+
+    async function setPower(on) {
+      const status = document.getElementById("status");
+      status.textContent = "Sending...";
+
+      const res = await fetch("/api/set-power/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRFToken": getCookie("csrftoken"),
+        },
+        body: JSON.stringify({ on }),
+      });
+
+      if (!res.ok) {
+        status.textContent = "Error: " + (await res.text());
+        return;
+      }
+
+      const data = await res.json();
+      const stateText = document.getElementById("stateText");
+      stateText.textContent = data.is_on ? "ON" : "OFF";
+      stateText.className = data.is_on ? "on" : "off";
+      status.textContent = "Updated.";
+    }
+
+    document.getElementById("onBtn").addEventListener("click", () => setPower(true));
+    document.getElementById("offBtn").addEventListener("click", () => setPower(false));
+  </script>
+</body>
+</html>
