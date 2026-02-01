@@ -19,6 +19,12 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
 
+
+LOGIN_URL = "/accounts/login/"
+LOGIN_REDIRECT_URL = "/control/"
+LOGOUT_REDIRECT_URL = "/accounts/login/"
+
+
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = 'django-insecure-)m*ysn&gkilf5!3#!u4d2rx+#gq*b8&g6dqi5&^020cf&i4lp('
 

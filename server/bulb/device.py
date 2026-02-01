@@ -9,3 +9,6 @@ class DeviceClient:
     """
     def set_power(self, on: bool) -> None:
         logger.info("MOCK DEVICE: set_power(%s)", "ON" if on else "OFF")
+
+    def set_brightness(self, brightness: int) -> None:
+        logger.info("MOCK DEVICE: set_brightness(%d)", brightness)

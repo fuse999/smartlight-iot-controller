@@ -20,3 +20,17 @@ def set_light(on: bool) -> LightState:
 
     ControlActivity.objects.create(action="ON" if on else "OFF")
     return state
+
+def set_brightness(brightness: int) -> LightState:
+    
+    brightness = max(0, min(100, int(brightness)))
+
+    device.set_brightness(brightness)
+
+    state = get_state()
+    state.brightness = brightness
+    state.updated_at = timezone.now()
+    state.save(update_fields=["brightness", "updated_at"])
+
+    ControlActivity.objects.create(action="BRIGHTNESS", value=str(brightness))
+    return state

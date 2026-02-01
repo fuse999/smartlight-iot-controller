@@ -14,6 +14,15 @@
 <body>
   <h1>Manual Light Control</h1>
 
+<form method="post" action="/accounts/logout/" style="display:inline;">
+  {% csrf_token %}
+  <button type="submit" style="background:none;border:none;color:#00f;text-decoration:underline;cursor:pointer;padding:0;">
+    Logout
+  </button>
+</form>
+
+
+
   <div class="state">
     Current State:
     <span id="stateText" class="{{ state.is_on|yesno:'on,off' }}">
@@ -25,6 +34,15 @@
   <button id="offBtn">Turn OFF</button>
 
   <p id="status"></p>
+  
+<div style="margin-top: 16px;">
+    <label for="brightness">
+      Brightness: <span id="bVal">{{ state.brightness|default:100 }}</span>%
+    </label><br/>
+    <input id="brightness" type="range" min="0" max="100"
+           value="{{ state.brightness|default:100 }}" />
+  </div>
+
 
   <script>
     function getCookie(name) {
@@ -57,6 +75,34 @@
       stateText.className = data.is_on ? "on" : "off";
       status.textContent = "Updated.";
     }
+    async function setBrightness(brightness) {
+      const status = document.getElementById("status");
+      status.textContent = "Sending brightness...";
+
+      const res = await fetch("/api/set-brightness/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRFToken": getCookie("csrftoken"),
+        },
+        body: JSON.stringify({ brightness }),
+      });
+
+      if (!res.ok) {
+        status.textContent = "Error: " + (await res.text());
+        return;
+      }
+
+      const data = await res.json();
+      document.getElementById("bVal").textContent = data.brightness;
+      status.textContent = "Brightness updated.";
+    }
+
+    const slider = document.getElementById("brightness");
+    slider.addEventListener("input", () => {
+      document.getElementById("bVal").textContent = slider.value;
+    });
+    slider.addEventListener("change", () => setBrightness(parseInt(slider.value, 10)));
 
     document.getElementById("onBtn").addEventListener("click", () => setPower(true));
     document.getElementById("offBtn").addEventListener("click", () => setPower(false));
