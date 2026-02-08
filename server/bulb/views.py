@@ -1,10 +1,12 @@
 import json
 
 from django.http import JsonResponse, HttpResponseBadRequest
-from django.shortcuts import render
+from django.shortcuts import render, redirect
 from django.views.decorators.http import require_POST
 from django.views.decorators.csrf import csrf_protect
 from django.contrib.auth.decorators import login_required, permission_required
+from .forms import LightScheduleForm
+from .models import LightSchedule
 
 
 from .services import get_state, set_light, set_brightness
@@ -47,3 +49,17 @@ def set_brightness_api(request):
         "brightness": state.brightness,
         "updated_at": state.updated_at.isoformat(),
     })
+
+@permission_required("bulb.can_control_bulb", raise_exception=True)
+@csrf_protect
+def schedules_page(request):
+    if request.method == "POST":
+        form = LightScheduleForm(request.POST)
+        if form.is_valid():
+            form.save()
+            return redirect("bulb_schedules")
+    else:
+        form = LightScheduleForm()
+
+    schedules = LightSchedule.objects.order_by("run_at")
+    return render(request, "bulb/schedules.html", {"form": form, "schedules": schedules})
