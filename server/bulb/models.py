@@ -48,7 +48,11 @@ class LightSchedule(models.Model):
     target_brightness = models.PositiveSmallIntegerField(
         validators=[MinValueValidator(0), MaxValueValidator(100)],
         null=True,
-        blank=True)
+        blank=True,
+    )
+
+    class Meta:
+        ordering = ["run_at"]
     
     def __str__(self) -> str:
         bri = "" if self.target_brightness is None else f", bri={self.target_brightness}"
