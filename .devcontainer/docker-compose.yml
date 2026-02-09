@@ -10,6 +10,9 @@ services:
     command: sleep infinity
     depends_on:
       - db
+    ports:
+      - "8000:8000"
+
 
   db:
     image: postgres:16
