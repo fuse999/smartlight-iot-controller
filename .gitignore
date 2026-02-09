@@ -32,8 +32,8 @@ build/
 *.bin
 *.elf
 *.hex
-*.h
-!.h.example
+firmware/SmartLightESP32C6/secrets.h
+
 
 # OS / Editor junk
 .DS_Store
