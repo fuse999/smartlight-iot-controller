@@ -32,8 +32,8 @@ build/
 *.bin
 *.elf
 *.hex
-firmware/esp32c6/include/secrets.h
-
+*.h
+!.h.example
 
 # OS / Editor junk
 .DS_Store
