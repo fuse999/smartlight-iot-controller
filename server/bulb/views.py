@@ -11,6 +11,10 @@ from .models import LightSchedule
 
 from .services import get_state, set_light, set_brightness
 
+
+def home_view(request):
+    return render(request, 'home.html')
+
 @permission_required("bulb.can_control_bulb", raise_exception=True)
 def control_page(request):
     state = get_state()
