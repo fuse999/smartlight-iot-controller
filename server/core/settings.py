@@ -22,6 +22,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
 
 
+HOME_URL = "/home/"
 LOGIN_URL = "/accounts/login/"
 LOGIN_REDIRECT_URL = "/control/"
 LOGOUT_REDIRECT_URL = "/accounts/login/"
@@ -136,7 +137,3 @@ load_dotenv("ops/env/.env")
 
 
 DEVICE_API_TOKEN = os.environ.get("DEVICE_API_TOKEN", "")
-
-
-
-
