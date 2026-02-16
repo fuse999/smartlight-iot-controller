@@ -36,13 +36,10 @@ def set_brightness(brightness: int) -> LightState:
     return state
 
 def apply_schedule(sched: LightSchedule) -> LightState:
-    #Execute a single schedule once, mark it executed
-    # Apply desired state
     state = set_light(sched.target_is_on)
     if sched.target_brightness is not None:
         state = set_brightness(sched.target_brightness)
 
-    # Mark schedule as done
     sched.executed_at = timezone.now()
     sched.enabled = False
     sched.save(update_fields=["executed_at", "enabled"])

@@ -43,6 +43,7 @@ class LightSchedule(models.Model):
     enabled = models.BooleanField(default=True) #for disabling schedules without completely removing them
     created_at = models.DateTimeField(default=timezone.now)
     executed_at = models.DateTimeField(null=True, blank=True)
+    claimed_at = models.DateTimeField(null=True, blank = True, db_index=True)
 
     target_is_on = models.BooleanField() #True for the light turning on
     target_brightness = models.PositiveSmallIntegerField(
