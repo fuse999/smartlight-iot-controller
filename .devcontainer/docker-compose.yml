@@ -1,0 +1,51 @@
+services:
+  dev:
+    build:
+      context: ../server
+    env_file:
+      - ../ops/env/.env
+    volumes:
+      - ../server:/app
+      - ..:/workspace
+    command: sleep infinity
+    depends_on:
+      - db
+    ports:
+      - "8000:8000"
+
+
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: smartlight
+      POSTGRES_USER: smartlight
+      POSTGRES_PASSWORD: smartlight
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+
+  celery_worker:
+    build:
+      context: ../server
+    env_file:
+      - ../ops/env/.env
+    volumes:
+      - ../server:/app
+    working_dir: /app
+    command: celery -A core worker -l INFO
+
+  celery_beat:
+    build:
+      context: ../server
+    env_file:
+      - ../ops/env/.env
+    volumes:
+      - ../server:/app
+    working_dir: /app
+    command: celery -A core beat -l INFO
+
+
+volumes:
+  pgdata:

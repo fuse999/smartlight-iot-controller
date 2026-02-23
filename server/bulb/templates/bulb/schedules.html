@@ -1,0 +1,108 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Light Schedules</title>
+  <style>
+    body { font-family: sans-serif; padding: 24px; }
+    button { padding: 10px 16px; margin-right: 8px; }
+    .enabled { color: green; }
+    .disabled { color: #b00; }
+    table { border-collapse: collapse; margin-top: 16px; }
+    th, td { padding: 8px 12px; border-bottom: 1px solid #ccc; }
+  </style>
+</head>
+<body>
+  <h1>Light Schedules</h1>
+
+  <!-- Logout (same as control page) -->
+  <form method="post" action="/accounts/logout/" style="display:inline;">
+    {% csrf_token %}
+    <button type="submit"
+      style="background:none;border:none;color:#00f;text-decoration:underline;cursor:pointer;padding:0;">
+      Logout
+    </button>
+  </form>
+
+  <p style="margin-top: 16px;">
+    <a href="/" style="text-decoration: underline;">← Back to Manual Control</a>
+  </p>
+
+  <hr />
+
+  <h2>Create Schedule</h2>
+
+  <form method="post">
+    {% csrf_token %}
+    <p>
+      {{ form.run_at.label_tag }}<br />
+      {{ form.run_at }}
+    </p>
+
+    <p>
+      {{ form.target_is_on.label_tag }}<br />
+      {{ form.target_is_on }}
+    </p>
+
+    <p>
+      {{ form.target_brightness.label_tag }}<br />
+      {{ form.target_brightness }}
+      <br /><small>(Leave empty if not needed)</small>
+    </p>
+
+    <p>
+      {{ form.enabled }} {{ form.enabled.label_tag }}
+    </p>
+
+    <button type="submit">Create Schedule</button>
+  </form>
+
+  {% if form.errors %}
+    <p style="color:#b00;">
+      {{ form.errors }}
+    </p>
+  {% endif %}
+
+  <hr />
+
+  <h2>Existing Schedules</h2>
+
+  {% if schedules %}
+    <table>
+      <thead>
+        <tr>
+          <th>Status</th>
+          <th>Run At</th>
+          <th>Target</th>
+          <th>Executed</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in schedules %}
+          <tr>
+            <td class="{{ s.enabled|yesno:'enabled,disabled' }}">
+              {{ s.enabled|yesno:"ENABLED,DISABLED" }}
+            </td>
+            <td>{{ s.run_at }}</td>
+            <td>
+              ON={{ s.target_is_on }}
+              {% if s.target_brightness is not None %}
+                , BRIGHTNESS={{ s.target_brightness }}
+              {% endif %}
+            </td>
+            <td>
+              {% if s.executed_at %}
+                {{ s.executed_at }}
+              {% else %}
+                —
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p>No schedules yet.</p>
+  {% endif %}
+</body>
+</html>
