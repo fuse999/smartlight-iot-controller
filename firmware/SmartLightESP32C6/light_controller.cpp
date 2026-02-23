@@ -10,8 +10,14 @@
     - Built-in LED shows ON/OFF state (PIN_POWER_LED)
     - External LED on PIN_DIM_OUT shows brightness using PWM
 
+  UPDATED IMPLEMENTATION (Hardware Bring-Up):
+    - Relay output added (PIN_RELAY_OUT) for hard ON/OFF control
+    - Optotriac drive output added (PIN_MOC_OUT) to trigger MOC3023 input side
+    - PWM LED demo is kept so we can validate brightness logic without
+      powering the AC dimmer stage yet
+
   FUTURE IMPLEMENTATION (Final Prototype):
-    - PIN_DIM_OUT will drive a TRIAC gate (via optotriac)
+    - PIN_DIM_OUT may drive TRIAC gate timing logic (phase-angle dimming)
     - Zero-cross detection will be added (PIN_ZC_IN)
     - PWM will likely be replaced with phase-angle timing logic
       (because AC dimming is not standard PWM)
@@ -36,23 +42,12 @@
 // ============================================================
 // Internal state storage
 // ============================================================
-//
-// We store the currently applied state here so that the main
-// loop can compare desired vs applied.
-//
-// This helps us avoid:
-//   - Reapplying the same state repeatedly
-//   - Spamming the server with duplicate reports
-//
 static LightState applied;
 
 
 // ============================================================
 // PWM Configuration (Demo Only)
 // ============================================================
-//
-// We use ESP32's LEDC hardware PWM system.
-//
 static const int PWM_FREQ = 5000;   // 5000 Hz: fast enough to avoid visible flicker
 static const int PWM_RES_BITS = 8;  // 8-bit resolution => duty cycle 0..255
 
@@ -60,12 +55,6 @@ static const int PWM_RES_BITS = 8;  // 8-bit resolution => duty cycle 0..255
 // ============================================================
 // clampBrightness()
 // ============================================================
-//
-// Ensures brightness stays within valid bounds (0–100).
-//
-// This protects against invalid server data or accidental
-// out-of-range values.
-//
 static int clampBrightness(int b) {
   if (b < 0) return 0;
   if (b > 100) return 100;
@@ -76,13 +65,6 @@ static int clampBrightness(int b) {
 // ============================================================
 // percentToDuty()
 // ============================================================
-//
-// Converts brightness from percent (0–100) into an 8-bit PWM
-// duty cycle (0–255).
-//
-// If brightness = 0%, duty = 0
-// If brightness = 100%, duty = 255
-//
 static uint8_t percentToDuty(int brightnessPercent) {
   brightnessPercent = clampBrightness(brightnessPercent);
   return (uint8_t)((brightnessPercent * 255) / 100);
@@ -92,14 +74,6 @@ static uint8_t percentToDuty(int brightnessPercent) {
 // ============================================================
 // light_controller_init()
 // ============================================================
-//
-// Called once during setup().
-//
-// Responsibilities:
-//  - Configure output pins
-//  - Initialize PWM system for brightness demo
-//  - Set initial light state to OFF
-//
 void light_controller_init() {
 
   // ----------------------------------------------------------
@@ -109,6 +83,14 @@ void light_controller_init() {
 
   // Start "OFF" respecting polarity
   digitalWrite(PIN_POWER_LED, PIN_POWER_LED_ACTIVE_LOW ? HIGH : LOW);
+
+  // ----------------------------------------------------------
+  // Configure Relay Output
+  // ----------------------------------------------------------
+  pinMode(PIN_RELAY_OUT, OUTPUT);
+
+  // Start OFF respecting polarity
+  digitalWrite(PIN_RELAY_OUT, PIN_RELAY_ACTIVE_LOW ? HIGH : LOW);
 
   // ----------------------------------------------------------
   // Configure PWM output for brightness demonstration
@@ -128,6 +110,22 @@ void light_controller_init() {
   ledcWrite(PIN_DIM_OUT, startDuty);
 
   // ----------------------------------------------------------
+  // Configure MOC3023 drive output (optotriac input side)
+  // ----------------------------------------------------------
+  //
+  // This pin is intended to drive the *LED input* of the optotriac
+  // stage (usually through a resistor and/or transistor like PN2222A).
+  //
+  // NOTE:
+  //   Depending on how your transistor stage is wired, "active LOW"
+  //   may be required. We handle that with PIN_MOC_ACTIVE_LOW.
+  //
+  pinMode(PIN_MOC_OUT, OUTPUT);
+
+  const uint8_t mocOffLevel = PIN_MOC_ACTIVE_LOW ? HIGH : LOW;
+  digitalWrite(PIN_MOC_OUT, mocOffLevel);
+
+  // ----------------------------------------------------------
   // Initialize applied state structure
   // ----------------------------------------------------------
   applied = LightState{};
@@ -137,17 +135,6 @@ void light_controller_init() {
 // ============================================================
 // light_controller_apply()
 // ============================================================
-//
-// Applies a new LightState to physical hardware.
-//
-// Steps:
-//  1. Copy requested state (so we can safely sanitize it)
-//  2. Clamp brightness to 0–100
-//  3. Update ON/OFF indicator LED
-//  4. Convert brightness to PWM duty (0–255)
-//  5. Write PWM output (external LED demo)
-//  6. Store applied state internally
-//
 void light_controller_apply(const LightState& s) {
 
   // Make a local copy so we can safely modify / sanitize it
@@ -159,19 +146,33 @@ void light_controller_apply(const LightState& s) {
   // ----------------------------------------------------------
   // ON/OFF Indicator LED
   // ----------------------------------------------------------
-  // Determine correct electrical level based on LED polarity
   const uint8_t ledOnLevel  = PIN_POWER_LED_ACTIVE_LOW ? LOW  : HIGH;
   const uint8_t ledOffLevel = PIN_POWER_LED_ACTIVE_LOW ? HIGH : LOW;
 
   digitalWrite(PIN_POWER_LED, next.is_on ? ledOnLevel : ledOffLevel);
 
   // ----------------------------------------------------------
+  // Relay Control (Hard ON/OFF)
+  // ----------------------------------------------------------
+  const uint8_t relayOnLevel  = PIN_RELAY_ACTIVE_LOW ? LOW  : HIGH;
+  const uint8_t relayOffLevel = PIN_RELAY_ACTIVE_LOW ? HIGH : LOW;
+
+  digitalWrite(PIN_RELAY_OUT, next.is_on ? relayOnLevel : relayOffLevel);
+
+  // Optional debug
+  Serial.println(next.is_on ? "Relay ON" : "Relay OFF");
+
+  // ----------------------------------------------------------
+  // MOC3023 Drive (Optotriac input side)
+  // ----------------------------------------------------------
+  const uint8_t mocOnLevel  = PIN_MOC_ACTIVE_LOW ? LOW  : HIGH;
+  const uint8_t mocOffLevel = PIN_MOC_ACTIVE_LOW ? HIGH : LOW;
+
+  digitalWrite(PIN_MOC_OUT, next.is_on ? mocOnLevel : mocOffLevel);
+
+  // ----------------------------------------------------------
   // Brightness Control (PWM Demo)
   // ----------------------------------------------------------
-  //
-  // If the light is OFF, we force duty to 0.
-  // If the light is ON, we compute duty from brightness.
-  //
   uint8_t duty = 0;
 
   if (next.is_on) {
@@ -183,7 +184,7 @@ void light_controller_apply(const LightState& s) {
     duty = 255 - duty;
   }
 
-  // Core 3.x API (ESP32-C6)
+  // Core 3.x API (ESP32-C6): write duty by PIN
   ledcWrite(PIN_DIM_OUT, duty);
 
   // ----------------------------------------------------------
@@ -196,14 +197,6 @@ void light_controller_apply(const LightState& s) {
 // ============================================================
 // light_controller_get_applied()
 // ============================================================
-//
-// Returns the most recently applied light state.
-//
-// Used by the main loop to compare against the desired state
-// from the server.
-//
-// This prevents unnecessary reapplication and server spam.
-//
 LightState light_controller_get_applied() {
   return applied;
 }

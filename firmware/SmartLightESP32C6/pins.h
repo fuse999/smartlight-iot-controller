@@ -42,9 +42,11 @@ static const bool PIN_POWER_LED_ACTIVE_LOW = true;
 static const int PIN_DIM_OUT = 15;
 static const bool PIN_DIM_ACTIVE_LOW = true;
 
+// Outputs
+static const int PIN_RELAY_OUT  = 17;   // Relay control pin (to relay driver transistor/module)
+static const int PIN_MOC_OUT    = 20;   // MOC3023 LED drive pin
+static const bool PIN_RELAY_ACTIVE_LOW = false;
+static const bool PIN_MOC_ACTIVE_LOW   = false;
 
-// ============================================================
-// Reserved for Future Hardware
-//
-// static const int PIN_ZC_IN = 5;
-// ============================================================
+// Sensor input
+static const int PIN_POWER_SENSE = 0;   // Current/power sensor analog output (ADC input)
