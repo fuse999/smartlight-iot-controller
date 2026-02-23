@@ -7,7 +7,6 @@ __pycache__/
 .env
 venv/
 .env.*
-!.env.example
 *.log
 
 # SQLite database
@@ -23,7 +22,7 @@ media/
 *.pyd
 db.sqlite3
 
-# Node / frontend
+# Node / frontend (if you use it later)
 node_modules/
 dist/
 build/
@@ -32,8 +31,6 @@ build/
 *.bin
 *.elf
 *.hex
-firmware/SmartLightESP32C6/secrets.h
-
 
 # OS / Editor junk
 .DS_Store
