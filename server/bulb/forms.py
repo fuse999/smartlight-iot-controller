@@ -11,6 +11,11 @@ class LightScheduleForm(forms.ModelForm):
             "target_brightness",
             "enabled",
         ]
+        labels = {
+            "target_is_on": "Turn light on",
+            "target_brightness": "Brightness",
+            "enabled": "Schedule enabled",
+        }
         widgets = {
             # Makes the input render as a native datetime picker in most browsers
             "run_at": forms.DateTimeInput(attrs={"type": "datetime-local"}),
