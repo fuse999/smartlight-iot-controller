@@ -10,12 +10,16 @@
     .disabled { color: #b00; }
     table { border-collapse: collapse; margin-top: 16px; }
     th, td { padding: 8px 12px; border-bottom: 1px solid #ccc; }
+
+    input:disabled {
+      background-color: #eee;
+      color: #666;
+    }
   </style>
 </head>
 <body>
   <h1>Light Schedules</h1>
 
-  <!-- Logout (same as control page) -->
   <form method="post" action="/accounts/logout/" style="display:inline;">
     {% csrf_token %}
     <button type="submit"
@@ -25,7 +29,7 @@
   </form>
 
   <p style="margin-top: 16px;">
-    <a href = "http://localhost:8000/control" style="text-decoration: underline;">← Back to Manual Control</a>
+    <a href="http://localhost:8000/control" style="text-decoration: underline;">← Back to Manual Control</a>
   </p>
 
   <hr />
@@ -104,5 +108,25 @@
   {% else %}
     <p>No schedules yet.</p>
   {% endif %}
+
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      const targetIsOn = document.getElementById("id_target_is_on");
+      const brightness = document.getElementById("id_target_brightness");
+
+      function updateBrightnessState() {
+        if (!targetIsOn.checked) {
+          brightness.disabled = true;
+          brightness.value = "";   // clears brightness
+        } else {
+          brightness.disabled = false;
+          brightness.placeholder = "0-100";
+        }
+      }
+
+      updateBrightnessState();
+      targetIsOn.addEventListener("change", updateBrightnessState);
+    });
+  </script>
 </body>
 </html>
