@@ -37,5 +37,8 @@ class LightScheduleForm(forms.ModelForm):
             # If turning OFF, brightness should not be set (avoid ambiguity).
             if target_is_on is False and target_brightness is not None:
                 cleaned["target_brightness"] = None
+            # If turning ON, brightness should be set.
+            if target_is_on is True and target_brightness is None:
+                 cleaned["target_brightness"] = 0
 
             return cleaned
