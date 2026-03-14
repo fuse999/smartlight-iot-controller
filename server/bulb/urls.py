@@ -2,6 +2,7 @@ from django.urls import path
 from . import views
 from . import api_views
 from django.views.generic import TemplateView
+from django.urls import path, include
 
 urlpatterns = [
     path("control/", views.control_page, name="bulb-control"),
@@ -11,4 +12,6 @@ urlpatterns = [
     path("api/light/desired/", api_views.desired_state, name="api_desired_state"),
     path("api/light/report/", api_views.report_state, name="api_report_state"),
     path("home/", TemplateView.as_view(template_name="home.html"), name="home"),
+    path("accounts/", include("django.contrib.auth.urls")),
+    path("register/", views.register, name="register"),
 ]

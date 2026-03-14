@@ -5,6 +5,7 @@ from django.shortcuts import render, redirect
 from django.views.decorators.http import require_POST
 from django.views.decorators.csrf import csrf_protect
 from django.contrib.auth.decorators import login_required, permission_required
+from django.contrib.auth.forms import UserCreationForm
 from .forms import LightScheduleForm
 from .models import LightSchedule
 
@@ -14,6 +15,19 @@ from .services import get_state, set_light, set_brightness
 
 def home_view(request):
     return render(request, 'home.html')
+
+def register(request):
+    if request.method == "POST":
+        form = UserCreationForm(request.POST)
+
+        if form.is_valid():
+            form.save()
+            return redirect("login")
+
+    else:
+        form = UserCreationForm()
+
+    return render(request, "registration/register.html", {"form": form})
 
 @permission_required("bulb.can_control_bulb", raise_exception=True)
 def control_page(request):
