@@ -26,6 +26,12 @@ class LightScheduleForm(forms.ModelForm):
         # small buffer so "right now" doesn't fail due to seconds
         if run_at <= timezone.now() + timezone.timedelta(seconds=10):
             raise forms.ValidationError("Scheduled time must be in the future.")
+        
+        if run_at and LightSchedule.objects.filter(run_at=run_at).exists():
+             self.add_error(
+                  "run_at",
+                  "A schedule already exists for that date/time. Please choose a different one."
+             )
 
         return run_at
 

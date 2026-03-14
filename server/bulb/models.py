@@ -39,7 +39,7 @@ class ControlActivity(models.Model):
         return f"{self.action} @ {self.created_at:%Y-%m-%d %H:%M:%S}"
 
 class LightSchedule(models.Model):
-    run_at = models.DateTimeField(db_index=True)
+    run_at = models.DateTimeField(db_index=True, unique=True)
     enabled = models.BooleanField(default=True) #for disabling schedules without completely removing them
     created_at = models.DateTimeField(default=timezone.now)
     executed_at = models.DateTimeField(null=True, blank=True)

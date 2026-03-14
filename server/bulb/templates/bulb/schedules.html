@@ -15,6 +15,12 @@
       background-color: #eee;
       color: #666;
     }
+    .errorlist {
+      color: #b00;
+      list-style: none;
+      margin: 4px 0 0 0;
+      padding: 0;
+    }
   </style>
 </head>
 <body>
@@ -41,6 +47,7 @@
     <p>
       {{ form.run_at.label_tag }}<br />
       {{ form.run_at }}
+      {{ form.run_at.errors }}
     </p>
 
     <p>
@@ -60,12 +67,6 @@
 
     <button type="submit">Create Schedule</button>
   </form>
-
-  {% if form.errors %}
-    <p style="color:#b00;">
-      {{ form.errors }}
-    </p>
-  {% endif %}
 
   <hr />
 
