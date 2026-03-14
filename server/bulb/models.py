@@ -61,4 +61,18 @@ class LightSchedule(models.Model):
     
 
 
+class PowerReading(models.Model):
+    created_at = models.DateTimeField(default=timezone.now, db_index=True)
+    current_rms = models.FloatField(help_text="Measured RMS current in amps")
+    estimated_voltage = models.FloatField(help_text="estimated voltage of the mains", default=120)
+    estimated_power_w = models.FloatField()
+    cumulative_energy_wh = models.FloatField(default=0.0)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.estimated_power_w:.2f}W @ {self.created_at:%Y-%m-%d %H:%M:%S}"
+
+
     
