@@ -39,7 +39,10 @@ from .services import get_state, set_light, set_brightness, refresh_next_run
 
 
 # Displays the public home page.
-# This page does not require login or permission.
+# ensure_csrf_cookie makes sure the browser gets a CSRF cookie even on the
+# public landing page, which allows JavaScript to safely send the browser
+# timezone to the backend.
+@ensure_csrf_cookie
 def home_view(request):
     return render(request, "home.html")
 
@@ -51,6 +54,11 @@ def home_view(request):
 # 1. an account access message,
 # 2. an access restricted message, or
 # 3. the actual controls.
+#
+# ensure_csrf_cookie is included so that if this is the first page the user
+# visits, JavaScript on the page can still POST the browser timezone and any
+# other CSRF-protected requests.
+@ensure_csrf_cookie
 def control_page(request):
     state = get_state()
     can_control = request.user.is_authenticated and request.user.has_perm("bulb.can_control_bulb")
@@ -125,6 +133,9 @@ def light_state_api(request):
 # Displays the schedules page and handles creation of new schedules.
 # The page itself is viewable even if the user is not authorized,
 # but only users with the correct permission are allowed to create schedules.
+#
+# ensure_csrf_cookie is included so timezone sync can happen from this page too.
+@ensure_csrf_cookie
 def schedules_page(request):
     can_control = request.user.is_authenticated and request.user.has_perm("bulb.can_control_bulb")
 
@@ -146,6 +157,8 @@ def schedules_page(request):
             schedule.last_run_at = None
 
             # Save the timezone currently active in Django.
+            # If the browser timezone was synced into the session and middleware
+            # activated it, this stores the user's effective timezone.
             schedule.timezone_name = timezone.get_current_timezone_name()
 
             # Save the schedule to the database.
@@ -170,6 +183,36 @@ def schedules_page(request):
         "can_control": can_control,
     })
 
+def schedule_status_api(request):
+    can_control = request.user.is_authenticated and request.user.has_perm("bulb.can_control_bulb")
+
+    if not can_control:
+        return JsonResponse({"schedules": []})
+
+    schedules = LightSchedule.objects.order_by("next_run_at", "id")
+
+    data = []
+    for s in schedules:
+        data.append({
+            "id": s.id,
+            "name": s.name or "—",
+            "enabled": s.enabled,
+            "days_display": s.days_display(),  # call the method
+            "time_of_day": s.time_of_day.strftime("%-I:%M %p") if s.time_of_day else "—",
+            "timezone_name": s.timezone_name or "—",
+            "target_is_on": s.target_is_on,
+            "target_brightness": s.target_brightness,
+            "next_run_at": (
+                s.next_run_at.astimezone(timezone.get_current_timezone()).strftime("%Y-%m-%d %-I:%M %p %Z")
+                if s.next_run_at else "—"
+            ),
+            "last_run_at": (
+                s.last_run_at.astimezone(timezone.get_current_timezone()).strftime("%Y-%m-%d %-I:%M %p %Z")
+                if s.last_run_at else "—"
+            ),
+        })
+
+    return JsonResponse({"schedules": data})
 
 # Displays the main dashboard page.
 # ensure_csrf_cookie makes sure the browser receives the CSRF cookie,
@@ -199,6 +242,8 @@ def dashboard_page(request):
             schedule.last_run_at = None
 
             # Save the currently active timezone.
+            # This should reflect the browser timezone if it has already been
+            # posted to the backend and activated by middleware.
             schedule.timezone_name = timezone.get_current_timezone_name()
 
             # Save schedule to the database.

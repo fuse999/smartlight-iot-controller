@@ -62,67 +62,86 @@
     <section class="card" style="margin-top:20px;">
       <h2>Existing Schedules</h2>
 
-      {% if schedules %}
-        <table>
-          <thead>
-            <tr>
-              <th>Status</th>
-              <th>Name</th>
-              <th>Days</th>
-              <th>Time</th>
-              <th>Schedule TZ</th>
-              <th>Action</th>
-              <th>Next Run</th>
-              <th>Last Run</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for s in schedules %}
+      <div id="scheduleTableWrapper">
+        {% if schedules %}
+          <table>
+            <thead>
               <tr>
-                <td class="{% if s.enabled %}enabled{% else %}disabled{% endif %}">
-                  {{ s.enabled|yesno:"ENABLED,DISABLED" }}
-                </td>
-                <td>{% if s.name %}{{ s.name }}{% else %}—{% endif %}</td>
-                <td>{{ s.days_display }}</td>
-                <td>{{ s.time_of_day|time:"g:i A" }}</td>
-                <td>{{ s.timezone_name }}</td>
-                <td>
-                  {% if s.target_is_on %}
-                    Turn ON
-                    {% if s.target_brightness is not None %}
-                      <br>Brightness: {{ s.target_brightness }}%
-                    {% endif %}
-                  {% else %}
-                    Turn OFF
-                  {% endif %}
-                </td>
-                <td>{% if s.next_run_at %}{{ s.next_run_at|date:"Y-m-d g:i A T" }}{% else %}—{% endif %}</td>
-                <td>{% if s.last_run_at %}{{ s.last_run_at|date:"Y-m-d g:i A T" }}{% else %}—{% endif %}</td>
-                <td>
-                  <div class="btn-row" style="margin:0;">
-                    <form method="post" action="{% url 'toggle_schedule' s.id %}" style="display:inline;">
-                      {% csrf_token %}
-                      <input type="hidden" name="next" value="{{ request.path }}">
-                      <button class="btn btn-secondary" type="submit">
-                        {% if s.enabled %}Disable{% else %}Enable{% endif %}
-                      </button>
-                    </form>
-
-                    <form method="post" action="{% url 'delete_schedule' s.id %}" style="display:inline;" onsubmit="return confirm('Delete this schedule?');">
-                      {% csrf_token %}
-                      <input type="hidden" name="next" value="{{ request.path }}">
-                      <button class="btn btn-danger" type="submit">Delete</button>
-                    </form>
-                  </div>
-                </td>
+                <th>Status</th>
+                <th>Name</th>
+                <th>Days</th>
+                <th>Time</th>
+                <th>Schedule TZ</th>
+                <th>Action</th>
+                <th>Next Run</th>
+                <th>Last Run</th>
+                <th>Actions</th>
               </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      {% else %}
-        <p class="muted">No schedules yet.</p>
-      {% endif %}
+            </thead>
+            <tbody id="scheduleTableBody">
+              {% for s in schedules %}
+                <tr>
+                  <td class="{% if s.enabled %}enabled{% else %}disabled{% endif %}">
+                    {{ s.enabled|yesno:"ENABLED,DISABLED" }}
+                  </td>
+                  <td>{% if s.name %}{{ s.name }}{% else %}—{% endif %}</td>
+                  <td>{{ s.days_display }}</td>
+                  <td>{{ s.time_of_day|time:"g:i A" }}</td>
+                  <td>{{ s.timezone_name }}</td>
+                  <td>
+                    {% if s.target_is_on %}
+                      Turn ON
+                      {% if s.target_brightness is not None %}
+                        <br>Brightness: {{ s.target_brightness }}%
+                      {% endif %}
+                    {% else %}
+                      Turn OFF
+                    {% endif %}
+                  </td>
+                  <td>{% if s.next_run_at %}{{ s.next_run_at|date:"Y-m-d g:i A T" }}{% else %}—{% endif %}</td>
+                  <td>{% if s.last_run_at %}{{ s.last_run_at|date:"Y-m-d g:i A T" }}{% else %}—{% endif %}</td>
+                  <td>
+                    <div class="btn-row" style="margin:0;">
+                      <form method="post" action="{% url 'toggle_schedule' s.id %}" style="display:inline;">
+                        {% csrf_token %}
+                        <input type="hidden" name="next" value="{{ request.path }}">
+                        <button class="btn btn-secondary" type="submit">
+                          {% if s.enabled %}Disable{% else %}Enable{% endif %}
+                        </button>
+                      </form>
+
+                      <form method="post" action="{% url 'delete_schedule' s.id %}" style="display:inline;" onsubmit="return confirm('Delete this schedule?');">
+                        {% csrf_token %}
+                        <input type="hidden" name="next" value="{{ request.path }}">
+                        <button class="btn btn-danger" type="submit">Delete</button>
+                      </form>
+                    </div>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          <p id="noSchedulesMessage" class="muted" style="display:none;">No schedules yet.</p>
+        {% else %}
+          <table style="display:none;" id="scheduleTable">
+            <thead>
+              <tr>
+                <th>Status</th>
+                <th>Name</th>
+                <th>Days</th>
+                <th>Time</th>
+                <th>Schedule TZ</th>
+                <th>Action</th>
+                <th>Next Run</th>
+                <th>Last Run</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="scheduleTableBody"></tbody>
+          </table>
+          <p id="noSchedulesMessage" class="muted">No schedules yet.</p>
+        {% endif %}
+      </div>
     </section>
 
     <div id="scheduleModal" class="modal-overlay" style="display:none;">
@@ -266,6 +285,114 @@
     status.textContent = "Brightness updated.";
   }
 
+  async function pollForStateChange() {
+    try {
+      const res = await fetch("/api/light-state/", {
+        headers: {
+          "X-Requested-With": "XMLHttpRequest"
+        }
+      });
+
+      if (!res.ok) return;
+
+      const data = await res.json();
+
+      const stateText = document.getElementById("stateText");
+      const brightnessValue = document.getElementById("bVal");
+      const slider = document.getElementById("brightness");
+
+      if (stateText) {
+        stateText.textContent = data.is_on ? "ON" : "OFF";
+        stateText.className = "state-badge " + (data.is_on ? "state-on" : "state-off");
+      }
+
+      if (brightnessValue) {
+        brightnessValue.textContent = data.brightness ?? 100;
+      }
+
+      if (slider) {
+        slider.value = data.brightness ?? 100;
+      }
+    } catch (err) {
+      console.error("State poll failed:", err);
+    }
+  }
+
+  async function refreshScheduleTable() {
+    try {
+      const res = await fetch("/api/schedules/status/", {
+        headers: {
+          "X-Requested-With": "XMLHttpRequest"
+        }
+      });
+
+      if (!res.ok) return;
+
+      const data = await res.json();
+
+      const tbody = document.getElementById("scheduleTableBody");
+      const noSchedulesMessage = document.getElementById("noSchedulesMessage");
+      const existingTable = tbody ? tbody.closest("table") : document.getElementById("scheduleTable");
+
+      if (!tbody || !noSchedulesMessage || !existingTable) return;
+
+      if (!data.schedules || data.schedules.length === 0) {
+        tbody.innerHTML = "";
+        existingTable.style.display = "none";
+        noSchedulesMessage.style.display = "block";
+        return;
+      }
+
+      existingTable.style.display = "";
+      noSchedulesMessage.style.display = "none";
+      tbody.innerHTML = "";
+
+      for (const s of data.schedules) {
+        const row = document.createElement("tr");
+
+        const actionHtml = s.target_is_on
+          ? `Turn ON${s.target_brightness !== null ? `<br>Brightness: ${s.target_brightness}%` : ""}`
+          : "Turn OFF";
+
+        const actionsHtml = `
+          <div class="btn-row" style="margin:0;">
+            <form method="post" action="/schedules/${s.id}/toggle/" style="display:inline;">
+              <input type="hidden" name="csrfmiddlewaretoken" value="${getCookie("csrftoken")}">
+              <input type="hidden" name="next" value="{{ request.path }}">
+              <button class="btn btn-secondary" type="submit">
+                ${s.enabled ? "Disable" : "Enable"}
+              </button>
+            </form>
+
+            <form method="post" action="/schedules/${s.id}/delete/" style="display:inline;" onsubmit="return confirm('Delete this schedule?');">
+              <input type="hidden" name="csrfmiddlewaretoken" value="${getCookie("csrftoken")}">
+              <input type="hidden" name="next" value="{{ request.path }}">
+              <button class="btn btn-danger" type="submit">Delete</button>
+            </form>
+          </div>
+        `;
+
+        row.innerHTML = `
+          <td class="${s.enabled ? "enabled" : "disabled"}">
+            ${s.enabled ? "ENABLED" : "DISABLED"}
+          </td>
+          <td>${s.name || "—"}</td>
+          <td>${s.days_display || "—"}</td>
+          <td>${s.time_of_day || "—"}</td>
+          <td>${s.timezone_name || "—"}</td>
+          <td>${actionHtml}</td>
+          <td>${s.next_run_at || "—"}</td>
+          <td>${s.last_run_at || "—"}</td>
+          <td>${actionsHtml}</td>
+        `;
+
+        tbody.appendChild(row);
+      }
+    } catch (err) {
+      console.error("Schedule refresh failed:", err);
+    }
+  }
+
   const slider = document.getElementById("brightness");
   if (slider) {
     slider.addEventListener("input", () => {
@@ -316,38 +443,8 @@
     openModal();
   {% endif %}
 
-  let lastKnownState = {
-    isOn: "{{ state.is_on|yesno:'true,false' }}" === "true",
-    brightness: parseInt("{{ state.brightness|default:100 }}", 10),
-  };
-
-  async function pollForStateChange() {
-    try {
-      const res = await fetch("/api/light-state/", {
-        headers: {
-          "X-Requested-With": "XMLHttpRequest"
-        }
-      });
-
-      if (!res.ok) return;
-
-      const data = await res.json();
-
-      const currentIsOn = !!data.is_on;
-      const currentBrightness = parseInt(data.brightness ?? 100, 10);
-
-      if (
-        currentIsOn !== lastKnownState.isOn ||
-        currentBrightness !== lastKnownState.brightness
-      ) {
-        window.location.reload();
-      }
-    } catch (err) {
-      console.error("State poll failed:", err);
-    }
-  }
-
   setInterval(pollForStateChange, 5000);
+  setInterval(refreshScheduleTable, 5000);
 </script>
 {% endif %}
 {% endblock %}

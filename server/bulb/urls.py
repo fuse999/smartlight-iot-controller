@@ -20,4 +20,5 @@ urlpatterns = [
     path("api/light-state/", views.light_state_api, name="light_state_api"),
     path("accounts/", include("django.contrib.auth.urls")),
     path("register/", views.register_view, name="register"),
+    path("api/schedules/status/", views.schedule_status_api, name="schedule_status_api"),
 ]
