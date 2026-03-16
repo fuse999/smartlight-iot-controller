@@ -1,16 +1,16 @@
 from celery import shared_task
-from django.db import transaction
 from django.utils import timezone
 
 from .models import LightSchedule
 from .services import apply_schedule
+
 
 @shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=True, retry_jitter=True, max_retries=5)
 def run_schedule(self, schedule_id: int) -> None:
     sched = LightSchedule.objects.filter(
         id=schedule_id,
         enabled=True,
-        executed_at__isnull=True,
+        claimed_at__isnull=False,
     ).first()
 
     if not sched:
@@ -27,11 +27,11 @@ def enqueue_due_schedules() -> None:
         LightSchedule.objects
         .filter(
             enabled=True,
-            executed_at__isnull=True,
             claimed_at__isnull=True,
-            run_at__lte=now,
+            next_run_at__isnull=False,
+            next_run_at__lte=now,
         )
-        .order_by("run_at")
+        .order_by("next_run_at")
         .values_list("id", flat=True)[:500]
     )
 
@@ -39,7 +39,6 @@ def enqueue_due_schedules() -> None:
         claimed = LightSchedule.objects.filter(
             id=schedule_id,
             claimed_at__isnull=True,
-            executed_at__isnull=True,
             enabled=True,
         ).update(claimed_at=now)
 

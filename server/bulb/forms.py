@@ -1,5 +1,4 @@
 from django import forms
-from django.utils import timezone
 from .models import LightSchedule
 
 from django.contrib.auth.forms import UserCreationForm
@@ -10,28 +9,39 @@ class LightScheduleForm(forms.ModelForm):
     class Meta:
         model = LightSchedule
         fields = [
-            "run_at",
+            "name",
             "target_is_on",
             "target_brightness",
+            "time_of_day",
+            "monday",
+            "tuesday",
+            "wednesday",
+            "thursday",
+            "friday",
+            "saturday",
+            "sunday",
             "enabled",
         ]
         widgets = {
-            "run_at": forms.DateTimeInput(attrs={"type": "hidden"}),
+            "time_of_day": forms.TimeInput(attrs={"type": "time"}),
         }
-
-    def clean_run_at(self):
-        run_at = self.cleaned_data["run_at"]
-
-        if timezone.is_naive(run_at):
-            run_at = timezone.make_aware(run_at, timezone.utc)
-
-        if run_at <= timezone.now() + timezone.timedelta(seconds=10):
-            raise forms.ValidationError("Scheduled time must be in the future.")
-
-        return run_at
 
     def clean(self):
         cleaned = super().clean()
+
+        day_fields = [
+            cleaned.get("monday"),
+            cleaned.get("tuesday"),
+            cleaned.get("wednesday"),
+            cleaned.get("thursday"),
+            cleaned.get("friday"),
+            cleaned.get("saturday"),
+            cleaned.get("sunday"),
+        ]
+
+        if not any(day_fields):
+            raise forms.ValidationError("Please select at least one day of the week.")
+
         target_is_on = cleaned.get("target_is_on")
         target_brightness = cleaned.get("target_brightness")
 

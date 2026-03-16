@@ -8,14 +8,13 @@
     button { padding: 10px 16px; margin-right: 8px; }
     .enabled { color: green; }
     .disabled { color: #b00; }
-    table { border-collapse: collapse; margin-top: 16px; }
-    th, td { padding: 8px 12px; border-bottom: 1px solid #ccc; }
+    table { border-collapse: collapse; margin-top: 16px; width: 100%; }
+    th, td { padding: 8px 12px; border-bottom: 1px solid #ccc; text-align: left; }
   </style>
 </head>
 <body>
   <h1>Light Schedules</h1>
 
-  <!-- Logout (same as control page) -->
   <form method="post" action="/accounts/logout/" style="display:inline;">
     {% csrf_token %}
     <button type="submit"
@@ -25,42 +24,39 @@
   </form>
 
   <p style="margin-top: 16px;">
-    <a href = "http://localhost:8000/control" style="text-decoration: underline;">← Back to Manual Control</a>
+    <a href="http://localhost:8000/dashboard/" style="text-decoration: underline;">← Back to Dashboard</a>
   </p>
 
   <hr />
 
-  <h2>Create Schedule</h2>
+  <h2>Create Weekly Schedule</h2>
 
   <form method="post">
     {% csrf_token %}
-    <p>
-      {{ form.run_at.label_tag }}<br />
-      {{ form.run_at }}
-    </p>
+
+    <p>{{ form.name.label_tag }}<br />{{ form.name }}</p>
+    <p>{{ form.target_is_on.label_tag }}<br />{{ form.target_is_on }}</p>
+    <p>{{ form.target_brightness.label_tag }}<br />{{ form.target_brightness }}</p>
+    <p>{{ form.time_of_day.label_tag }}<br />{{ form.time_of_day }}</p>
 
     <p>
-      {{ form.target_is_on.label_tag }}<br />
-      {{ form.target_is_on }}
+      Repeat On:<br />
+      <label>{{ form.monday }} Mon</label>
+      <label>{{ form.tuesday }} Tue</label>
+      <label>{{ form.wednesday }} Wed</label>
+      <label>{{ form.thursday }} Thu</label>
+      <label>{{ form.friday }} Fri</label>
+      <label>{{ form.saturday }} Sat</label>
+      <label>{{ form.sunday }} Sun</label>
     </p>
 
-    <p>
-      {{ form.target_brightness.label_tag }}<br />
-      {{ form.target_brightness }}
-      <br /><small>(Leave empty if not needed)</small>
-    </p>
-
-    <p>
-      {{ form.enabled }} {{ form.enabled.label_tag }}
-    </p>
+    <p>{{ form.enabled }} {{ form.enabled.label_tag }}</p>
 
     <button type="submit">Create Schedule</button>
   </form>
 
   {% if form.errors %}
-    <p style="color:#b00;">
-      {{ form.errors }}
-    </p>
+    <p style="color:#b00;">{{ form.errors }}</p>
   {% endif %}
 
   <hr />
@@ -72,9 +68,14 @@
       <thead>
         <tr>
           <th>Status</th>
-          <th>Run At</th>
-          <th>Target</th>
-          <th>Executed</th>
+          <th>Name</th>
+          <th>Days</th>
+          <th>Time</th>
+          <th>Schedule TZ</th>
+          <th>Action</th>
+          <th>Next Run</th>
+          <th>Last Run</th>
+          <th>Actions</th>
         </tr>
       </thead>
       <tbody>
@@ -83,19 +84,35 @@
             <td class="{{ s.enabled|yesno:'enabled,disabled' }}">
               {{ s.enabled|yesno:"ENABLED,DISABLED" }}
             </td>
-            <td>{{ s.run_at }}</td>
+            <td>{{ s.name|default:"—" }}</td>
+            <td>{{ s.days_display }}</td>
+            <td>{{ s.time_of_day|time:"g:i A" }}</td>
+            <td>{{ s.timezone_name }}</td>
             <td>
-              ON={{ s.target_is_on }}
-              {% if s.target_brightness is not None %}
-                , BRIGHTNESS={{ s.target_brightness }}
+              {% if s.target_is_on %}
+                Turn ON
+                {% if s.target_brightness is not None %}
+                  ({{ s.target_brightness }}%)
+                {% endif %}
+              {% else %}
+                Turn OFF
               {% endif %}
             </td>
+            <td>{{ s.next_run_at|date:"Y-m-d g:i A T"|default:"—" }}</td>
+            <td>{{ s.last_run_at|date:"Y-m-d g:i A T"|default:"—" }}</td>
             <td>
-              {% if s.executed_at %}
-                {{ s.executed_at }}
-              {% else %}
-                —
-              {% endif %}
+              <form method="post" action="{% url 'toggle_schedule' s.id %}" style="display:inline;">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{{ request.path }}">
+                <button type="submit">{% if s.enabled %}Disable{% else %}Enable{% endif %}</button>
+              </form>
+
+              <form method="post" action="{% url 'delete_schedule' s.id %}" style="display:inline;"
+                    onsubmit="return confirm('Delete this schedule?');">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{{ request.path }}">
+                <button type="submit">Delete</button>
+              </form>
             </td>
           </tr>
         {% endfor %}

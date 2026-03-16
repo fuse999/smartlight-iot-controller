@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import LightState, ControlActivity
+from .models import LightState, ControlActivity, LightSchedule
 
 
 @admin.register(LightState)
@@ -19,3 +19,20 @@ class ControlActivityAdmin(admin.ModelAdmin):
     list_filter = ("action", "created_at")
     search_fields = ("action", "value")
     ordering = ("-created_at",)
+
+
+@admin.register(LightSchedule)
+class LightScheduleAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "name",
+        "enabled",
+        "days_display",
+        "time_of_day",
+        "timezone_name",
+        "next_run_at",
+        "last_run_at",
+    )
+    list_filter = ("enabled", "timezone_name")
+    search_fields = ("name", "timezone_name")
+    ordering = ("next_run_at", "id")

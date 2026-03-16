@@ -1,17 +1,17 @@
 import json
 
-from django.http import JsonResponse, HttpResponseBadRequest, HttpResponseForbidden
+from django.http import JsonResponse, HttpResponseBadRequest
 from django.shortcuts import render, redirect, get_object_or_404
 from django.views.decorators.http import require_POST
 from django.views.decorators.csrf import csrf_protect, ensure_csrf_cookie
 from django.contrib.auth.decorators import permission_required
-
 from django.contrib.auth import login
 from django.contrib.auth.models import Permission
+from django.utils import timezone
 
 from .forms import LightScheduleForm, RegisterForm
 from .models import LightSchedule
-from .services import get_state, set_light, set_brightness
+from .services import get_state, set_light, set_brightness, refresh_next_run
 
 
 def home_view(request):
@@ -60,45 +60,69 @@ def set_brightness_api(request):
     })
 
 
+def light_state_api(request):
+    state = get_state()
+
+    return JsonResponse({
+        "is_on": state.is_on,
+        "brightness": state.brightness,
+        "updated_at": state.updated_at.isoformat() if state.updated_at else None,
+    })
+
+
 @permission_required("bulb.can_control_bulb", raise_exception=True)
 @csrf_protect
 def schedules_page(request):
     if request.method == "POST":
         form = LightScheduleForm(request.POST)
         if form.is_valid():
-            form.save()
+            schedule = form.save(commit=False)
+            schedule.claimed_at = None
+            schedule.last_run_at = None
+            schedule.timezone_name = timezone.get_current_timezone_name()
+            schedule.save()
+            refresh_next_run(schedule)
             return redirect("bulb_schedules")
     else:
         form = LightScheduleForm()
 
-    schedules = LightSchedule.objects.order_by("run_at")
+    schedules = LightSchedule.objects.order_by("next_run_at", "id")
     return render(request, "bulb/schedules.html", {
         "form": form,
         "schedules": schedules,
     })
 
 
-@permission_required("bulb.can_control_bulb", raise_exception=True)
 @ensure_csrf_cookie
 @csrf_protect
 def dashboard_page(request):
     state = get_state()
+    can_control = request.user.is_authenticated and request.user.has_perm("bulb.can_control_bulb")
 
     if request.method == "POST":
+        if not can_control:
+            return redirect("login")
+
         form = LightScheduleForm(request.POST)
         if form.is_valid():
-            form.save()
+            schedule = form.save(commit=False)
+            schedule.claimed_at = None
+            schedule.last_run_at = None
+            schedule.timezone_name = timezone.get_current_timezone_name()
+            schedule.save()
+            refresh_next_run(schedule)
             return redirect("bulb_dashboard")
     else:
         form = LightScheduleForm()
 
-    schedules = LightSchedule.objects.order_by("run_at")
+    schedules = LightSchedule.objects.order_by("next_run_at", "id") if can_control else []
 
     return render(request, "bulb/dashboard.html", {
         "state": state,
         "form": form,
         "schedules": schedules,
         "register_form": RegisterForm(),
+        "can_control": can_control,
     })
 
 
@@ -107,13 +131,15 @@ def dashboard_page(request):
 @csrf_protect
 def toggle_schedule(request, schedule_id):
     schedule = get_object_or_404(LightSchedule, id=schedule_id)
-
-    # Optional guard: don't let already executed schedules be re-enabled
-    if schedule.executed_at is not None and not schedule.enabled:
-        return redirect(request.POST.get("next") or "bulb_dashboard")
-
     schedule.enabled = not schedule.enabled
-    schedule.save(update_fields=["enabled"])
+
+    if schedule.enabled:
+        schedule.claimed_at = None
+        schedule.save(update_fields=["enabled", "claimed_at"])
+        refresh_next_run(schedule)
+    else:
+        schedule.claimed_at = None
+        schedule.save(update_fields=["enabled", "claimed_at"])
 
     return redirect(request.POST.get("next") or "bulb_dashboard")
 
@@ -164,12 +190,14 @@ def register_view(request):
         return redirect(next_url)
 
     state = get_state()
-    schedules = LightSchedule.objects.order_by("run_at")
+    can_control = request.user.is_authenticated and request.user.has_perm("bulb.can_control_bulb")
+    schedules = LightSchedule.objects.order_by("next_run_at", "id") if can_control else []
 
     return render(request, "bulb/dashboard.html", {
         "state": state,
         "form": LightScheduleForm(),
         "schedules": schedules,
         "register_form": register_form,
+        "can_control": can_control,
         "open_register_modal": True,
     })
