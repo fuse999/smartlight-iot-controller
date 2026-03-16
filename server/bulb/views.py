@@ -8,7 +8,7 @@ from django.contrib.auth.decorators import permission_required
 from django.contrib.auth import login
 from django.contrib.auth.models import Permission
 from django.utils import timezone
-
+from django.contrib.auth.forms import UserCreationForm
 from .forms import LightScheduleForm, RegisterForm
 from .models import LightSchedule
 from .services import get_state, set_light, set_brightness, refresh_next_run

@@ -18,4 +18,6 @@ urlpatterns = [
     path("api/set-timezone/", views.set_timezone_api, name="set_timezone_api"),
     path("accounts/register/", views.register_view, name="register"),
     path("api/light-state/", views.light_state_api, name="light_state_api"),
+    path("accounts/", include("django.contrib.auth.urls")),
+    path("register/", views.register, name="register"),
 ]
