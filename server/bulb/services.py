@@ -1,16 +1,20 @@
+from datetime import datetime, timedelta
+import zoneinfo
+
 from django.utils import timezone
+
 from .models import LightState, ControlActivity, LightSchedule
 from .device import DeviceClient
 
 device = DeviceClient()
 
+
 def get_state() -> LightState:
-    # Keep a single row by always using id=1
     state, _ = LightState.objects.get_or_create(id=1, defaults={"is_on": False})
     return state
 
+
 def set_light(on: bool) -> LightState:
-    # Call device first (mock). Later you can handle exceptions here.
     device.set_power(on)
 
     state = get_state()
@@ -21,8 +25,8 @@ def set_light(on: bool) -> LightState:
     ControlActivity.objects.create(action="ON" if on else "OFF")
     return state
 
+
 def set_brightness(brightness: int) -> LightState:
-    
     brightness = max(0, min(100, int(brightness)))
 
     device.set_brightness(brightness)
@@ -35,13 +39,61 @@ def set_brightness(brightness: int) -> LightState:
     ControlActivity.objects.create(action="BRIGHTNESS", value=str(brightness))
     return state
 
-def apply_schedule(sched: LightSchedule) -> LightState:
-    state = set_light(sched.target_is_on)
-    if sched.target_brightness is not None:
-        state = set_brightness(sched.target_brightness)
 
-    sched.executed_at = timezone.now()
-    sched.enabled = False
-    sched.save(update_fields=["executed_at", "enabled"])
+def _get_schedule_timezone(schedule: LightSchedule):
+    tzname = schedule.timezone_name or "UTC"
+    try:
+        return zoneinfo.ZoneInfo(tzname)
+    except Exception:
+        return zoneinfo.ZoneInfo("UTC")
+
+
+def compute_next_run(schedule: LightSchedule, from_dt=None):
+    """
+    Compute the next datetime this weekly schedule should run,
+    using the schedule's own saved timezone instead of the
+    currently active request/worker timezone.
+    """
+    tz = _get_schedule_timezone(schedule)
+    now_local = timezone.localtime(from_dt or timezone.now(), tz)
+
+    selected_days = schedule.selected_weekdays()
+    if not selected_days:
+        return None
+
+    base_date = now_local.date()
+
+    for offset in range(0, 8):
+        candidate_date = base_date + timedelta(days=offset)
+        if candidate_date.weekday() not in selected_days:
+            continue
+
+        naive_candidate = datetime.combine(candidate_date, schedule.time_of_day)
+        candidate = timezone.make_aware(naive_candidate, tz)
+
+        if candidate > now_local:
+            return candidate
+
+    return None
+
+
+def refresh_next_run(schedule: LightSchedule, from_dt=None, save=True):
+    schedule.next_run_at = compute_next_run(schedule, from_dt=from_dt)
+    if save:
+        schedule.save(update_fields=["next_run_at"])
+    return schedule.next_run_at
+
+
+def apply_schedule(schedule: LightSchedule) -> LightState:
+    state = set_light(schedule.target_is_on)
+
+    if schedule.target_is_on and schedule.target_brightness is not None:
+        state = set_brightness(schedule.target_brightness)
+
+    now = timezone.now()
+    schedule.last_run_at = now
+    schedule.claimed_at = None
+    schedule.next_run_at = compute_next_run(schedule, from_dt=now + timedelta(seconds=1))
+    schedule.save(update_fields=["last_run_at", "claimed_at", "next_run_at"])
 
     return state

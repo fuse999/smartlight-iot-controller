@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import LightState, ControlActivity, PowerReading
+from .models import LightState, ControlActivity, PowerReading, LightSchedule
 
 
 @admin.register(LightState)
@@ -29,3 +29,19 @@ class PowerReadingAdmin(admin.ModelAdmin):
         "cumulative_energy_wh",
     )
     ordering = ("-created_at",)
+
+@admin.register(LightSchedule)
+class LightScheduleAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "name",
+        "enabled",
+        "days_display",
+        "time_of_day",
+        "timezone_name",
+        "next_run_at",
+        "last_run_at",
+    )
+    list_filter = ("enabled", "timezone_name")
+    search_fields = ("name", "timezone_name")
+    ordering = ("next_run_at", "id")
