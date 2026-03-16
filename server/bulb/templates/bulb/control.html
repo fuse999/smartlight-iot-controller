@@ -2,17 +2,11 @@
 
 {% block title %}Manual Light Control{% endblock %}
 
-<<<<<<< Updated upstream
-<p style="margin-top: 16px;">
-    <a href = "http://localhost:8000/dashboard" style="text-decoration: underline;">Back to Dashboard</a>
-</p>
-=======
 {% block content %}
   <section class="hero">
     <h1>Manual Light Control</h1>
     <p>Turn the light on or off and adjust brightness manually.</p>
   </section>
->>>>>>> Stashed changes
 
   {% if not request.user.is_authenticated %}
     <section class="card">

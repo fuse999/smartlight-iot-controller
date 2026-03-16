@@ -2,22 +2,6 @@
 
 {% block title %}Login{% endblock %}
 
-<<<<<<< Updated upstream
-  <form method="post">
-    {% csrf_token %}
-    <label>Username</label>
-    {{ form.username }}
-    <label>Password</label>
-    {{ form.password }}
-    <button type="submit">Log in</button>
-  </form>
-  <p>
-  Don't have an account?
-  <a href="/register/">Register</a>
-</p>
-</body>
-</html>
-=======
 {% block content %}
   <section class="card" style="max-width: 420px; margin: 0 auto;">
     <h1>Login</h1>
@@ -46,4 +30,3 @@
     </form>
   </section>
 {% endblock %}
->>>>>>> Stashed changes

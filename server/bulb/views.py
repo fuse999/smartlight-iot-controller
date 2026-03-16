@@ -27,12 +27,8 @@ from django.contrib.auth.models import Permission
 
 # timezone lets us work with Django's current active timezone.
 from django.utils import timezone
-<<<<<<< Updated upstream
-from django.contrib.auth.forms import UserCreationForm
-=======
 
 # Import forms used in the pages.
->>>>>>> Stashed changes
 from .forms import LightScheduleForm, RegisterForm
 
 # Import the LightSchedule model so we can create, read, update, and delete schedules.
@@ -48,22 +44,6 @@ def home_view(request):
     return render(request, "home.html")
 
 
-<<<<<<< Updated upstream
-def register(request):
-    if request.method == "POST":
-        form = UserCreationForm(request.POST)
-
-        if form.is_valid():
-            form.save()
-            return redirect("login")
-
-    else:
-        form = UserCreationForm()
-
-    return render(request, "registration/register.html", {"form": form})
-
-@permission_required("bulb.can_control_bulb", raise_exception=True)
-=======
 # Displays the manual control page.
 # Instead of blocking access immediately, this view checks whether the
 # user is allowed to control the bulb and passes that result to the template.
@@ -71,7 +51,6 @@ def register(request):
 # 1. an account access message,
 # 2. an access restricted message, or
 # 3. the actual controls.
->>>>>>> Stashed changes
 def control_page(request):
     state = get_state()
     can_control = request.user.is_authenticated and request.user.has_perm("bulb.can_control_bulb")

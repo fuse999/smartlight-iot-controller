@@ -6,7 +6,7 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('bulb', '0009_powerreading_alter_lightschedule_run_at'),
+        ('bulb', '0009_alter_lightschedule_options_and_more'),
         ('bulb', '0010_lightschedule_timezone_name'),
     ]
 
