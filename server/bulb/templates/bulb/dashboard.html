@@ -1,0 +1,260 @@
+{% extends "base.html" %}
+
+{% block title %}Smart Light Dashboard{% endblock %}
+
+{% block content %}
+  <section class="hero">
+    <h1>Welcome to the IoT Smart Light Dashboard</h1>
+    <p>
+      This page combines manual light control, brightness control, and scheduling
+      into one place so users do not have to jump between separate pages.
+    </p>
+  </section>
+
+  <div class="grid">
+    <section class="card">
+      <h2>Manual Light Control</h2>
+
+      <p>
+        Current State:
+        <span
+          id="stateText"
+          class="state-badge {% if state.is_on %}state-on{% else %}state-off{% endif %}">
+          {{ state.is_on|yesno:"ON,OFF" }}
+        </span>
+      </p>
+
+      <div class="btn-row">
+        <button class="btn btn-primary" id="onBtn" type="button">Turn ON</button>
+        <button class="btn btn-danger" id="offBtn" type="button">Turn OFF</button>
+      </div>
+
+      <div style="margin-top:16px;">
+        <label for="brightness">
+          Brightness: <span id="bVal">{{ state.brightness|default:100 }}</span>%
+        </label>
+        <input
+          id="brightness"
+          type="range"
+          min="0"
+          max="100"
+          value="{{ state.brightness|default:100 }}" />
+      </div>
+
+      <p id="status" class="status-text"></p>
+    </section>
+
+    <section class="card">
+      <h2>Create Schedule</h2>
+
+      <form method="post" id="scheduleForm">
+        {% csrf_token %}
+
+        <div class="form-group">
+          <label for="run_at_local">Run At</label>
+          <input id="run_at_local" type="datetime-local" required />
+        </div>
+
+        {{ form.run_at }}
+        <input type="hidden" name="browser_timezone" id="browser_timezone" />
+
+        <div class="form-group">
+          <label for="{{ form.target_is_on.id_for_label }}">{{ form.target_is_on.label }}</label>
+          {{ form.target_is_on }}
+        </div>
+
+        <div class="form-group">
+          <label for="{{ form.target_brightness.id_for_label }}">{{ form.target_brightness.label }}</label>
+          {{ form.target_brightness }}
+          <div class="muted">Leave empty if brightness should not change.</div>
+        </div>
+
+        <div class="form-group">
+          <label>
+            {{ form.enabled }} {{ form.enabled.label }}
+          </label>
+        </div>
+
+        <div class="form-actions">
+          <button class="btn btn-primary" type="submit">Create Schedule</button>
+        </div>
+      </form>
+
+      {% if form.errors %}
+        <div class="alert alert-error" style="margin-top:14px;">
+          {{ form.errors }}
+        </div>
+      {% endif %}
+    </section>
+  </div>
+
+  <section class="card" style="margin-top:20px;">
+    <h2>Existing Schedules</h2>
+
+    {% if schedules %}
+      <table>
+        <thead>
+          <tr>
+            <th>Status</th>
+            <th>Run At</th>
+            <th>Target</th>
+            <th>Executed</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in schedules %}
+            <tr>
+              <td class="{{ s.enabled|yesno:'enabled,disabled' }}">
+                {{ s.enabled|yesno:"ENABLED,DISABLED" }}
+              </td>
+              <td>{{ s.run_at }}</td>
+              <td>
+                ON={{ s.target_is_on }}
+                {% if s.target_brightness is not None %}
+                  <br />BRIGHTNESS={{ s.target_brightness }}
+                {% endif %}
+              </td>
+              <td>
+                {% if s.executed_at %}
+                  {{ s.executed_at }}
+                {% else %}
+                  —
+                {% endif %}
+              </td>
+              <td>
+                <div class="btn-row" style="margin:0;">
+                  <form method="post" action="{% url 'toggle_schedule' s.id %}" style="display:inline;">
+                    {% csrf_token %}
+                    <input type="hidden" name="next" value="{{ request.path }}">
+                    <button class="btn btn-secondary" type="submit">
+                      {% if s.enabled %}Disable{% else %}Enable{% endif %}
+                    </button>
+                  </form>
+
+                  <form method="post" action="{% url 'delete_schedule' s.id %}" style="display:inline;"
+                        onsubmit="return confirm('Delete this schedule?');">
+                    {% csrf_token %}
+                    <input type="hidden" name="next" value="{{ request.path }}">
+                    <button class="btn btn-danger" type="submit">Delete</button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="muted">No schedules yet.</p>
+    {% endif %}
+  </section>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  function getCookie(name) {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    if (parts.length === 2) return parts.pop().split(';').shift();
+  }
+
+  async function setPower(on) {
+    const status = document.getElementById("status");
+    status.textContent = "Sending...";
+
+    const res = await fetch("/api/set-power/", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRFToken": getCookie("csrftoken"),
+      },
+      body: JSON.stringify({ on }),
+    });
+
+    if (!res.ok) {
+      status.textContent = "Error: " + (await res.text());
+      return;
+    }
+
+    const data = await res.json();
+    const stateText = document.getElementById("stateText");
+    stateText.textContent = data.is_on ? "ON" : "OFF";
+    stateText.className = "state-badge " + (data.is_on ? "state-on" : "state-off");
+    status.textContent = "Updated.";
+  }
+
+  async function setBrightness(brightness) {
+    const status = document.getElementById("status");
+    status.textContent = "Sending brightness...";
+
+    const res = await fetch("/api/set-brightness/", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRFToken": getCookie("csrftoken"),
+      },
+      body: JSON.stringify({ brightness }),
+    });
+
+    if (!res.ok) {
+      status.textContent = "Error: " + (await res.text());
+      return;
+    }
+
+    const data = await res.json();
+    document.getElementById("bVal").textContent = data.brightness;
+    status.textContent = "Brightness updated.";
+  }
+
+  const slider = document.getElementById("brightness");
+  if (slider) {
+    slider.addEventListener("input", () => {
+      document.getElementById("bVal").textContent = slider.value;
+    });
+
+    slider.addEventListener("change", () => {
+      setBrightness(parseInt(slider.value, 10));
+    });
+  }
+
+  const onBtn = document.getElementById("onBtn");
+  const offBtn = document.getElementById("offBtn");
+
+  if (onBtn) onBtn.addEventListener("click", () => setPower(true));
+  if (offBtn) offBtn.addEventListener("click", () => setPower(false));
+
+  const scheduleForm = document.getElementById("scheduleForm");
+  const runAtLocal = document.getElementById("run_at_local");
+  const runAtHidden = document.getElementById("id_run_at");
+  const browserTimezone = document.getElementById("browser_timezone");
+
+  if (browserTimezone) {
+    browserTimezone.value = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  }
+
+  if (scheduleForm && runAtLocal && runAtHidden) {
+    scheduleForm.addEventListener("submit", (event) => {
+      if (!runAtLocal.value) {
+        event.preventDefault();
+        alert("Please choose a schedule time.");
+        return;
+      }
+
+      // Example input from datetime-local:
+      // "2026-03-15T19:30"
+      // new Date(...) interprets it in the browser's local timezone.
+      const localDate = new Date(runAtLocal.value);
+
+      if (Number.isNaN(localDate.getTime())) {
+        event.preventDefault();
+        alert("Invalid date/time selected.");
+        return;
+      }
+
+      // Convert to UTC ISO string for storage.
+      // Example: "2026-03-16T02:30:00.000Z"
+      runAtHidden.value = localDate.toISOString();
+    });
+  }
+</script>
+{% endblock %}

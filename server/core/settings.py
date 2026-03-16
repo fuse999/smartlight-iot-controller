@@ -25,8 +25,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 HOME_URL = "/home/"
 LOGIN_URL = "/accounts/login/"
-LOGIN_REDIRECT_URL = "/control/"
-LOGOUT_REDIRECT_URL = "/accounts/login/"
+LOGIN_REDIRECT_URL = "/dashboard/"
+LOGOUT_REDIRECT_URL = "/dashboard/"
 
 
 # SECURITY WARNING: keep the secret key used in production secret!
@@ -58,6 +58,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'bulb.middleware.TimezoneMiddleware',
 ]
 
 ROOT_URLCONF = 'core.urls'
