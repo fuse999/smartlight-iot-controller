@@ -1,8 +1,8 @@
 from django import forms
+from .models import LightSchedule
+
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
-
-from .models import LightSchedule
 
 
 class LightScheduleForm(forms.ModelForm):
@@ -23,9 +23,9 @@ class LightScheduleForm(forms.ModelForm):
             "enabled",
         ]
         labels = {
-            "target_is_on": "Turn light on",
+            "target_is_on": "Turn Light On",
             "target_brightness": "Brightness",
-            "enabled": "Schedule enabled",
+            "enabled": "Schedule Enabled",
         }
         widgets = {
             "time_of_day": forms.TimeInput(attrs={"type": "time"}),
@@ -37,16 +37,15 @@ class LightScheduleForm(forms.ModelForm):
         target_is_on = cleaned.get("target_is_on")
         target_brightness = cleaned.get("target_brightness")
 
-        # If turning the light OFF, brightness should not be stored.
-        if target_is_on is False and target_brightness is not None:
+        # If turning OFF, brightness should not be set
+        if target_is_on is False:
             cleaned["target_brightness"] = None
 
-        # If turning the light ON and brightness is left blank,
-        # default it to 0.
+        # If turning ON but brightness missing, default to 0
         if target_is_on is True and target_brightness is None:
             cleaned["target_brightness"] = 0
 
-        # Make sure the user selected at least one day.
+        # Ensure at least one day is selected
         day_fields = [
             cleaned.get("monday"),
             cleaned.get("tuesday"),
