@@ -83,13 +83,7 @@
                 <td class="{% if s.enabled %}enabled{% else %}disabled{% endif %}">
                   {{ s.enabled|yesno:"ENABLED,DISABLED" }}
                 </td>
-                <td>
-                  {% if s.name %}
-                    {{ s.name }}
-                  {% else %}
-                    —
-                  {% endif %}
-                </td>
+                <td>{% if s.name %}{{ s.name }}{% else %}—{% endif %}</td>
                 <td>{{ s.days_display }}</td>
                 <td>{{ s.time_of_day|time:"g:i A" }}</td>
                 <td>{{ s.timezone_name }}</td>
@@ -103,20 +97,8 @@
                     Turn OFF
                   {% endif %}
                 </td>
-                <td>
-                  {% if s.next_run_at %}
-                    {{ s.next_run_at|date:"Y-m-d g:i A T" }}
-                  {% else %}
-                    —
-                  {% endif %}
-                </td>
-                <td>
-                  {% if s.last_run_at %}
-                    {{ s.last_run_at|date:"Y-m-d g:i A T" }}
-                  {% else %}
-                    —
-                  {% endif %}
-                </td>
+                <td>{% if s.next_run_at %}{{ s.next_run_at|date:"Y-m-d g:i A T" }}{% else %}—{% endif %}</td>
+                <td>{% if s.last_run_at %}{{ s.last_run_at|date:"Y-m-d g:i A T" }}{% else %}—{% endif %}</td>
                 <td>
                   <div class="btn-row" style="margin:0;">
                     <form method="post" action="{% url 'toggle_schedule' s.id %}" style="display:inline;">
@@ -209,13 +191,10 @@
   {% elif not request.user.is_authenticated %}
     <section class="card">
       <h2>Account Access</h2>
-      <p>
-        Please log in or create an account to access the smart light dashboard.
-      </p>
-
+      <p>Please log in or create an account to access the smart light dashboard.</p>
       <div class="btn-row">
-        <button class="btn btn-primary" type="button" id="guestOpenLogin">Log In</button>
-        <button class="btn btn-secondary" type="button" id="guestOpenRegister">Create Account</button>
+        <a class="btn btn-primary" href="{% url 'login' %}">Log In</a>
+        <a class="btn btn-secondary" href="{% url 'register' %}">Create Account</a>
       </div>
     </section>
 
@@ -231,222 +210,144 @@
 {% endblock %}
 
 {% block extra_scripts %}
-  <script>
-    document.addEventListener("DOMContentLoaded", () => {
-      const guestOpenLogin = document.getElementById("guestOpenLogin");
-      const guestOpenRegister = document.getElementById("guestOpenRegister");
-      const topLogin = document.getElementById("openLoginModal");
-      const topRegister = document.getElementById("openRegisterModal");
+{% if request.user.is_authenticated and can_control %}
+<script>
+  function getCookie(name) {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    if (parts.length === 2) return parts.pop().split(';').shift();
+  }
 
-      if (guestOpenLogin && topLogin) {
-        guestOpenLogin.addEventListener("click", () => topLogin.click());
-      }
+  async function setPower(on) {
+    const status = document.getElementById("status");
+    status.textContent = "Sending...";
 
-      if (guestOpenRegister && topRegister) {
-        guestOpenRegister.addEventListener("click", () => topRegister.click());
+    const res = await fetch("/api/set-power/", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRFToken": getCookie("csrftoken"),
+      },
+      body: JSON.stringify({ on }),
+    });
+
+    if (!res.ok) {
+      status.textContent = "Error: " + (await res.text());
+      return;
+    }
+
+    const data = await res.json();
+    const stateText = document.getElementById("stateText");
+    stateText.textContent = data.is_on ? "ON" : "OFF";
+    stateText.className = "state-badge " + (data.is_on ? "state-on" : "state-off");
+    status.textContent = "Updated.";
+  }
+
+  async function setBrightness(brightness) {
+    const status = document.getElementById("status");
+    status.textContent = "Sending brightness...";
+
+    const res = await fetch("/api/set-brightness/", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRFToken": getCookie("csrftoken"),
+      },
+      body: JSON.stringify({ brightness }),
+    });
+
+    if (!res.ok) {
+      status.textContent = "Error: " + (await res.text());
+      return;
+    }
+
+    const data = await res.json();
+    document.getElementById("bVal").textContent = data.brightness;
+    status.textContent = "Brightness updated.";
+  }
+
+  const slider = document.getElementById("brightness");
+  if (slider) {
+    slider.addEventListener("input", () => {
+      document.getElementById("bVal").textContent = slider.value;
+    });
+
+    slider.addEventListener("change", () => {
+      setBrightness(parseInt(slider.value, 10));
+    });
+  }
+
+  const onBtn = document.getElementById("onBtn");
+  const offBtn = document.getElementById("offBtn");
+
+  if (onBtn) onBtn.addEventListener("click", () => setPower(true));
+  if (offBtn) offBtn.addEventListener("click", () => setPower(false));
+
+  const scheduleModal = document.getElementById("scheduleModal");
+  const openScheduleModal = document.getElementById("openScheduleModal");
+  const closeScheduleModal = document.getElementById("closeScheduleModal");
+  const cancelScheduleModal = document.getElementById("cancelScheduleModal");
+
+  function openModal() {
+    if (scheduleModal) {
+      scheduleModal.style.display = "flex";
+    }
+  }
+
+  function closeModal() {
+    if (scheduleModal) {
+      scheduleModal.style.display = "none";
+    }
+  }
+
+  if (openScheduleModal) openScheduleModal.addEventListener("click", openModal);
+  if (closeScheduleModal) closeScheduleModal.addEventListener("click", closeModal);
+  if (cancelScheduleModal) cancelScheduleModal.addEventListener("click", closeModal);
+
+  if (scheduleModal) {
+    scheduleModal.addEventListener("click", function(event) {
+      if (event.target === scheduleModal) {
+        closeModal();
       }
     });
-  </script>
+  }
 
-  {% if request.user.is_authenticated and can_control %}
-  <script>
-    function getCookie(name) {
-      const value = `; ${document.cookie}`;
-      const parts = value.split(`; ${name}=`);
-      if (parts.length === 2) return parts.pop().split(';').shift();
-    }
-
-    async function setPower(on) {
-      const status = document.getElementById("status");
-      status.textContent = "Sending...";
-
-      const res = await fetch("/api/set-power/", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-CSRFToken": getCookie("csrftoken"),
-        },
-        body: JSON.stringify({ on }),
-      });
-
-      if (!res.ok) {
-        status.textContent = "Error: " + (await res.text());
-        return;
-      }
-
-      const data = await res.json();
-      const stateText = document.getElementById("stateText");
-      stateText.textContent = data.is_on ? "ON" : "OFF";
-      stateText.className = "state-badge " + (data.is_on ? "state-on" : "state-off");
-      status.textContent = "Updated.";
-    }
-
-    async function setBrightness(brightness) {
-      const status = document.getElementById("status");
-      status.textContent = "Sending brightness...";
-
-      const res = await fetch("/api/set-brightness/", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-CSRFToken": getCookie("csrftoken"),
-        },
-        body: JSON.stringify({ brightness }),
-      });
-
-      if (!res.ok) {
-        status.textContent = "Error: " + (await res.text());
-        return;
-      }
-
-      const data = await res.json();
-      document.getElementById("bVal").textContent = data.brightness;
-      status.textContent = "Brightness updated.";
-    }
-
-    const slider = document.getElementById("brightness");
-    if (slider) {
-      slider.addEventListener("input", () => {
-        document.getElementById("bVal").textContent = slider.value;
-      });
-
-      slider.addEventListener("change", () => {
-        setBrightness(parseInt(slider.value, 10));
-      });
-    }
-
-    const onBtn = document.getElementById("onBtn");
-    const offBtn = document.getElementById("offBtn");
-
-    if (onBtn) onBtn.addEventListener("click", () => setPower(true));
-    if (offBtn) offBtn.addEventListener("click", () => setPower(false));
-
-    const scheduleModal = document.getElementById("scheduleModal");
-    const openScheduleModal = document.getElementById("openScheduleModal");
-    const closeScheduleModal = document.getElementById("closeScheduleModal");
-    const cancelScheduleModal = document.getElementById("cancelScheduleModal");
-
-    function openModal() {
-      if (scheduleModal) {
-        scheduleModal.style.display = "flex";
-      }
-    }
-
-    function closeModal() {
-      if (scheduleModal) {
-        scheduleModal.style.display = "none";
-      }
-    }
-
-    if (openScheduleModal) {
-      openScheduleModal.addEventListener("click", openModal);
-    }
-
-    if (closeScheduleModal) {
-      closeScheduleModal.addEventListener("click", closeModal);
-    }
-
-    if (cancelScheduleModal) {
-      cancelScheduleModal.addEventListener("click", closeModal);
-    }
-
-    if (scheduleModal) {
-      scheduleModal.addEventListener("click", function(event) {
-        if (event.target === scheduleModal) {
-          closeModal();
-        }
-      });
-    }
-
-    {% if form.errors %}
-      openModal();
-    {% endif %}
-
-    let lastKnownState = {
-      isOn: "{{ state.is_on|yesno:'true,false' }}" === "true",
-      brightness: parseInt("{{ state.brightness|default:100 }}", 10),
-    };
-
-    async function pollForStateChange() {
-      try {
-        const res = await fetch("/api/light-state/", {
-          headers: {
-            "X-Requested-With": "XMLHttpRequest"
-          }
-        });
-
-        if (!res.ok) return;
-
-        const data = await res.json();
-
-        const currentIsOn = !!data.is_on;
-        const currentBrightness = parseInt(data.brightness ?? 100, 10);
-
-        if (
-          currentIsOn !== lastKnownState.isOn ||
-          currentBrightness !== lastKnownState.brightness
-        ) {
-          window.location.reload();
-        }
-      } catch (err) {
-        console.error("State poll failed:", err);
-      }
-    }
-
-    setInterval(pollForStateChange, 5000);
-  </script>
-
-  <style>
-    .modal-overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(0, 0, 0, 0.45);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 20px;
-      z-index: 9999;
-    }
-
-    .modal-card {
-      background: white;
-      color: black;
-      width: 100%;
-      max-width: 700px;
-      border-radius: 12px;
-      padding: 24px;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
-      max-height: 90vh;
-      overflow-y: auto;
-    }
-
-    .modal-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 16px;
-    }
-
-    .modal-close {
-      background: transparent;
-      border: none;
-      font-size: 28px;
-      line-height: 1;
-      cursor: pointer;
-    }
-
-    .weekday-grid {
-      display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 8px;
-      margin-top: 8px;
-    }
-
-    @media (max-width: 640px) {
-      .weekday-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
-    }
-  </style>
+  {% if form.errors %}
+    openModal();
   {% endif %}
+
+  let lastKnownState = {
+    isOn: "{{ state.is_on|yesno:'true,false' }}" === "true",
+    brightness: parseInt("{{ state.brightness|default:100 }}", 10),
+  };
+
+  async function pollForStateChange() {
+    try {
+      const res = await fetch("/api/light-state/", {
+        headers: {
+          "X-Requested-With": "XMLHttpRequest"
+        }
+      });
+
+      if (!res.ok) return;
+
+      const data = await res.json();
+
+      const currentIsOn = !!data.is_on;
+      const currentBrightness = parseInt(data.brightness ?? 100, 10);
+
+      if (
+        currentIsOn !== lastKnownState.isOn ||
+        currentBrightness !== lastKnownState.brightness
+      ) {
+        window.location.reload();
+      }
+    } catch (err) {
+      console.error("State poll failed:", err);
+    }
+  }
+
+  setInterval(pollForStateChange, 5000);
+</script>
+{% endif %}
 {% endblock %}

@@ -1,36 +1,33 @@
-<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8" />
-  <title>Light Schedules</title>
-  <style>
-    body { font-family: sans-serif; padding: 24px; }
-    button { padding: 10px 16px; margin-right: 8px; }
-    .enabled { color: green; }
-    .disabled { color: #b00; }
-    table { border-collapse: collapse; margin-top: 16px; width: 100%; }
-    th, td { padding: 8px 12px; border-bottom: 1px solid #ccc; text-align: left; }
-  </style>
-</head>
-<body>
-  <h1>Light Schedules</h1>
+{% extends "base.html" %}
 
-  <form method="post" action="/accounts/logout/" style="display:inline;">
-    {% csrf_token %}
-    <button type="submit"
-      style="background:none;border:none;color:#00f;text-decoration:underline;cursor:pointer;padding:0;">
-      Logout
-    </button>
-  </form>
+{% block title %}Light Schedules{% endblock %}
 
-  <p style="margin-top: 16px;">
-    <a href="http://localhost:8000/dashboard/" style="text-decoration: underline;">← Back to Dashboard</a>
-  </p>
+{% block content %}
+  <section class="hero">
+    <h1>Light Schedules</h1>
+    <p>Create and manage recurring weekly schedules for the smart light.</p>
+  </section>
 
-  <hr />
+  {% if not request.user.is_authenticated %}
+    <section class="card">
+      <h2>Account Access</h2>
+      <p>Please log in or create an account to view and manage schedules.</p>
+      <div class="btn-row">
+        <a class="btn btn-primary" href="/accounts/login/">Log In</a>
+        <a class="btn btn-secondary" href="{% url 'register' %}">Create Account</a>
+      </div>
+    </section>
 
-  <h2>Create Weekly Schedule</h2>
+  {% elif not can_control %}
+    <section class="card">
+      <h2>Access Restricted</h2>
+      <p>
+        You are logged in, but your account does not currently have permission
+        to manage schedules.
+      </p>
+    </section>
 
+<<<<<<< Updated upstream
   <form method="post">
     {% csrf_token %}
 
@@ -114,9 +111,138 @@
         {% endfor %}
       </tbody>
     </table>
+=======
+>>>>>>> Stashed changes
   {% else %}
-    <p>No schedules yet.</p>
+    <div class="grid">
+      <section class="card">
+        <h2>Create Weekly Schedule</h2>
+
+        <form method="post">
+          {% csrf_token %}
+
+          <div class="form-group">
+            <label for="{{ form.name.id_for_label }}">Schedule Name</label>
+            {{ form.name }}
+          </div>
+
+          <div class="form-group">
+            <label for="{{ form.target_is_on.id_for_label }}">Action</label>
+            {{ form.target_is_on }}
+          </div>
+
+          <div class="form-group">
+            <label for="{{ form.target_brightness.id_for_label }}">Brightness</label>
+            {{ form.target_brightness }}
+          </div>
+
+          <div class="form-group">
+            <label for="{{ form.time_of_day.id_for_label }}">Time of Day</label>
+            {{ form.time_of_day }}
+          </div>
+
+          <div class="form-group">
+            <label>Repeat On</label>
+            <div class="weekday-grid">
+              <label>{{ form.monday }} Mon</label>
+              <label>{{ form.tuesday }} Tue</label>
+              <label>{{ form.wednesday }} Wed</label>
+              <label>{{ form.thursday }} Thu</label>
+              <label>{{ form.friday }} Fri</label>
+              <label>{{ form.saturday }} Sat</label>
+              <label>{{ form.sunday }} Sun</label>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>{{ form.enabled }} Enabled</label>
+          </div>
+
+          {% if form.errors %}
+            <div class="alert alert-error">
+              {{ form.errors }}
+            </div>
+          {% endif %}
+
+          <div class="form-actions">
+            <button class="btn btn-primary" type="submit">Create Schedule</button>
+            <a class="btn btn-secondary" href="{% url 'bulb_dashboard' %}">Back to Dashboard</a>
+          </div>
+        </form>
+      </section>
+
+      <section class="card">
+        <h2>Existing Schedules</h2>
+
+        {% if schedules %}
+          <table>
+            <thead>
+              <tr>
+                <th>Status</th>
+                <th>Name</th>
+                <th>Days</th>
+                <th>Time</th>
+                <th>Schedule TZ</th>
+                <th>Action</th>
+                <th>Next Run</th>
+                <th>Last Run</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for s in schedules %}
+                <tr>
+                  <td class="{% if s.enabled %}enabled{% else %}disabled{% endif %}">
+                    {{ s.enabled|yesno:"ENABLED,DISABLED" }}
+                  </td>
+                  <td>{{ s.name|default:"—" }}</td>
+                  <td>{{ s.days_display }}</td>
+                  <td>{{ s.time_of_day|time:"g:i A" }}</td>
+                  <td>{{ s.timezone_name }}</td>
+                  <td>
+                    {% if s.target_is_on %}
+                      Turn ON
+                      {% if s.target_brightness is not None %}
+                        <br>Brightness: {{ s.target_brightness }}%
+                      {% endif %}
+                    {% else %}
+                      Turn OFF
+                    {% endif %}
+                  </td>
+                  <td>{{ s.next_run_at|date:"Y-m-d g:i A T"|default:"—" }}</td>
+                  <td>{{ s.last_run_at|date:"Y-m-d g:i A T"|default:"—" }}</td>
+                  <td>
+                    <div class="btn-row" style="margin: 0;">
+                      <form method="post" action="{% url 'toggle_schedule' s.id %}" style="display:inline;">
+                        {% csrf_token %}
+                        <input type="hidden" name="next" value="{{ request.path }}">
+                        <button class="btn btn-secondary" type="submit">
+                          {% if s.enabled %}Disable{% else %}Enable{% endif %}
+                        </button>
+                      </form>
+
+                      <form
+                        method="post"
+                        action="{% url 'delete_schedule' s.id %}"
+                        style="display:inline;"
+                        onsubmit="return confirm('Delete this schedule?');">
+                        {% csrf_token %}
+                        <input type="hidden" name="next" value="{{ request.path }}">
+                        <button class="btn btn-danger" type="submit">Delete</button>
+                      </form>
+                    </div>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% else %}
+          <p class="muted">No schedules yet.</p>
+        {% endif %}
+      </section>
+    </div>
   {% endif %}
+<<<<<<< Updated upstream
 
   <script>
     document.addEventListener("DOMContentLoaded", function () {
@@ -139,3 +265,6 @@
   </script>
 </body>
 </html>
+=======
+{% endblock %}
+>>>>>>> Stashed changes

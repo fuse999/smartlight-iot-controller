@@ -1,39 +1,72 @@
-<!-- bulb/templates/home.html -->
-<!DOCTYPE html>
-<html lang="en">
-<head>
-	<meta charset="UTF-8">
-	<title>Home Page</title>
-	<style>
-		body { font-family: sans-serif; padding: 24px; }
-		button { padding: 10px 16px; margin-right: 8px; }
-	</style>
-</head>
-<body bgcolor = "lightblue">
-	<center>
-    		<h1>Welcome to the IOT Smartlight Home Page!</h1>
-    		<p>This site showcases the status of a remotely controlled IOT smartlight.</p>
+{% extends "base.html" %}
 
-		<hr />
+{% block title %}Home | Smart Light{% endblock %}
 
-		<p>Test the light for yourself! Register or sign in today.</p>
-		<form action="http://localhost:8000/accounts/login">
-			<input type="submit" value="Login">
-		</form>
+{% block content %}
 
-		<hr />
+<section class="hero">
+  <h1>Welcome to the IoT Smart Light Home Page</h1>
+  <p>
+    This site showcases the status and control system for a remotely controlled IoT smart light.
+  </p>
+</section>
 
-		<p>Are you logged in as a user? See our current schedules for the state of the light bulb, or make your own schedules.</p>
-		<form action="http://localhost:8000/schedules">
-			<input type="submit" value="Schedules">
-		</form>
+<div class="grid">
 
-		<hr />
+  <section class="card">
+    <h2>Get Started</h2>
+    <p class="muted">
+      Test the light for yourself by creating an account or signing in.
+    </p>
 
-		<p>Are you logged in as a user? Control the state and brightness of the light bulb manually.</p>
-		<form action="http://localhost:8000/control">
-			<input type="submit" value="Control">
-		</form>
-	</center>
-</body>
-</html>
+    <div class="btn-row">
+      <a class="btn btn-primary" href="/accounts/login/">Login</a>
+      <a class="btn btn-secondary" href="{% url 'register' %}">Register</a>
+    </div>
+  </section>
+
+
+  <section class="card">
+    <h2>Schedules</h2>
+    <p class="muted">
+      View the current schedules for the smart light or create your own recurring schedules.
+    </p>
+
+    <div class="btn-row">
+      <a class="btn btn-primary" href="{% url 'bulb_schedules' %}">
+        View Schedules
+      </a>
+    </div>
+  </section>
+
+
+  <section class="card">
+    <h2>Manual Control</h2>
+    <p class="muted">
+      Control the light power state and brightness manually.
+    </p>
+
+    <div class="btn-row">
+      <a class="btn btn-primary" href="{% url 'bulb-control' %}">
+        Open Controls
+      </a>
+    </div>
+  </section>
+
+
+  <section class="card">
+    <h2>Dashboard</h2>
+    <p class="muted">
+      Access the combined dashboard to control the bulb and manage schedules from one place.
+    </p>
+
+    <div class="btn-row">
+      <a class="btn btn-primary" href="{% url 'bulb_dashboard' %}">
+        Open Dashboard
+      </a>
+    </div>
+  </section>
+
+</div>
+
+{% endblock %}

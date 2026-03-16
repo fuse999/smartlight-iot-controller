@@ -21,6 +21,20 @@
       --radius: 14px;
     }
 
+    body.dark-mode {
+      --bg: #0f172a;
+      --panel: #111827;
+      --panel-alt: #1f2937;
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --border: #374151;
+      --primary: #60a5fa;
+      --primary-dark: #3b82f6;
+      --success: #4ade80;
+      --danger: #f87171;
+      --shadow: 0 8px 24px rgba(0,0,0,0.35);
+    }
+
     * { box-sizing: border-box; }
 
     body {
@@ -30,12 +44,16 @@
       color: var(--text);
     }
 
+    a {
+      color: var(--primary);
+    }
+
     .topbar {
       position: sticky;
       top: 0;
       z-index: 50;
-      background: #dbeafe;
-      border-bottom: 1px solid #bfdbfe;
+      background: var(--panel-alt);
+      border-bottom: 1px solid var(--border);
       box-shadow: 0 2px 10px rgba(0,0,0,0.05);
     }
 
@@ -47,19 +65,20 @@
       align-items: center;
       justify-content: space-between;
       gap: 16px;
+      flex-wrap: wrap;
     }
 
     .brand {
       font-size: 1.2rem;
       font-weight: bold;
-      color: #1e3a8a;
+      color: var(--text);
       text-decoration: none;
     }
 
     .nav-links {
       display: flex;
       align-items: center;
-      gap: 14px;
+      gap: 10px;
       flex-wrap: wrap;
     }
 
@@ -86,19 +105,11 @@
       max-width: 1200px;
       margin: 0 auto;
       padding: 24px 20px 40px;
-      transition: filter 0.2s ease, opacity 0.2s ease;
-    }
-
-    .page-locked {
-      filter: blur(3px);
-      opacity: 0.65;
-      pointer-events: none;
-      user-select: none;
     }
 
     .hero {
-      background: linear-gradient(135deg, #e0f2fe, #eff6ff);
-      border: 1px solid #cfe3fb;
+      background: linear-gradient(135deg, var(--panel-alt), var(--panel));
+      border: 1px solid var(--border);
       border-radius: var(--radius);
       padding: 24px;
       box-shadow: var(--shadow);
@@ -149,12 +160,12 @@
     }
 
     .state-on {
-      background: #dcfce7;
+      background: rgba(34, 197, 94, 0.18);
       color: var(--success);
     }
 
     .state-off {
-      background: #fee2e2;
+      background: rgba(239, 68, 68, 0.18);
       color: var(--danger);
     }
 
@@ -197,8 +208,13 @@
       color: #111827;
     }
 
-    .btn-secondary:hover {
-      background: #d1d5db;
+    body.dark-mode .btn-secondary {
+      background: #374151;
+      color: #e5e7eb;
+    }
+
+    body.dark-mode .btn-secondary:hover {
+      background: #4b5563;
     }
 
     label {
@@ -209,16 +225,19 @@
 
     input[type="range"],
     input[type="datetime-local"],
+    input[type="time"],
     input[type="text"],
     input[type="password"],
     input[type="email"],
+    input[type="number"],
     select,
     textarea {
       width: 100%;
       padding: 10px 12px;
-      border: 1px solid #cbd5e1;
+      border: 1px solid var(--border);
       border-radius: 10px;
-      background: white;
+      background: var(--panel);
+      color: var(--text);
       font-size: 0.95rem;
     }
 
@@ -232,11 +251,6 @@
       margin-top: 6px;
       color: var(--muted);
       font-size: 0.9rem;
-    }
-
-    .helptext ul {
-      margin: 6px 0 0 18px;
-      padding: 0;
     }
 
     .status-text {
@@ -255,7 +269,7 @@
 
     th, td {
       padding: 10px 12px;
-      border-bottom: 1px solid #e5e7eb;
+      border-bottom: 1px solid var(--border);
       text-align: left;
       vertical-align: top;
     }
@@ -266,47 +280,6 @@
 
     .enabled { color: var(--success); font-weight: bold; }
     .disabled { color: var(--danger); font-weight: bold; }
-
-    .modal {
-      display: none;
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.45);
-      z-index: 100;
-      padding: 20px;
-    }
-
-    .modal.show {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .modal-content {
-      width: 100%;
-      max-width: 420px;
-      background: white;
-      border-radius: 16px;
-      box-shadow: 0 20px 50px rgba(0,0,0,0.18);
-      padding: 22px;
-      position: relative;
-    }
-
-    .modal-content h2 {
-      margin-top: 0;
-      margin-bottom: 8px;
-    }
-
-    .modal-close {
-      position: absolute;
-      top: 12px;
-      right: 14px;
-      border: none;
-      background: none;
-      font-size: 1.3rem;
-      cursor: pointer;
-      color: #374151;
-    }
 
     .form-group {
       margin-bottom: 14px;
@@ -327,274 +300,124 @@
     }
 
     .alert-error {
-      background: #fee2e2;
-      color: #991b1b;
+      background: rgba(239, 68, 68, 0.18);
+      color: var(--danger);
     }
 
-    .auth-blocker {
-      z-index: 150;
-      background: rgba(15, 23, 42, 0.48);
-      backdrop-filter: blur(2px);
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.45);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      z-index: 9999;
     }
 
-    .auth-blocker .modal-content {
-      max-width: 480px;
-      text-align: center;
-      border: 1px solid #dbeafe;
+    .modal-card {
+      background: var(--panel);
+      color: var(--text);
+      width: 100%;
+      max-width: 700px;
+      border-radius: 12px;
+      padding: 24px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+      max-height: 90vh;
+      overflow-y: auto;
+      border: 1px solid var(--border);
     }
 
-    .auth-blocker h2 {
-      margin-bottom: 10px;
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
     }
 
-    .auth-blocker p {
-      margin-bottom: 18px;
+    .modal-close {
+      background: transparent;
+      border: none;
+      font-size: 28px;
+      line-height: 1;
+      cursor: pointer;
+      color: var(--text);
     }
 
-    .welcome-note {
-      background: #eff6ff;
-      color: #1e3a8a;
-      padding: 10px 12px;
-      border-radius: 10px;
-      font-size: 0.92rem;
-      margin-bottom: 14px;
+    .weekday-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    @media (max-width: 640px) {
+      .weekday-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
     }
   </style>
 
   {% block extra_head %}{% endblock %}
 </head>
-<body data-authenticated="{% if user.is_authenticated %}true{% else %}false{% endif %}">
-
+<body>
   <header class="topbar">
     <div class="topbar-inner">
-      <a class="brand" href="/">Smart Light Dashboard</a>
+      <a class="brand" href="{% url 'home' %}">Smart Light Dashboard</a>
 
       <nav class="nav-links">
-        <a href="/">Dashboard</a>
-        <a href="/control">Control</a>
-        <a href="/schedules">Schedules</a>
+        <a href="{% url 'home' %}">Home</a>
+        <a href="{% url 'bulb_dashboard' %}">Dashboard</a>
+        <a href="{% url 'bulb-control' %}">Control</a>
+        <a href="{% url 'bulb_schedules' %}">Schedules</a>
+
+        <button type="button" id="themeToggle">Dark Mode</button>
 
         {% if user.is_authenticated %}
           <span>Hello, {{ user.username }}</span>
-          <form method="post" action="{% url 'logout' %}" style="display:inline;">
+          <form method="post" action="/accounts/logout/" style="display:inline;">
             {% csrf_token %}
             <button type="submit">Logout</button>
           </form>
         {% else %}
-          <button type="button" id="openLoginModal">Login</button>
-          <button type="button" id="openRegisterModal">Register</button>
+          <a href="/accounts/login/">Login</a>
+          <a href="{% url 'register' %}">Register</a>
         {% endif %}
       </nav>
     </div>
   </header>
 
-  <main class="page {% if not user.is_authenticated %}page-locked{% endif %}">
+  <main class="page">
     {% block content %}{% endblock %}
   </main>
 
-  {% if not user.is_authenticated %}
-    <div id="authBlocker" class="modal show auth-blocker">
-      <div class="modal-content">
-        <h2>Login Required</h2>
-        <p class="muted">
-          Please log in or register to use the smart light dashboard.
-          The page is visible in the background, but controls are locked until you sign in.
-        </p>
-
-        <div class="form-actions" style="justify-content:center;">
-          <button class="btn btn-primary" type="button" id="openLoginFromBlocker">Login</button>
-          <button class="btn btn-secondary" type="button" id="openRegisterFromBlocker">Register</button>
-        </div>
-      </div>
-    </div>
-
-    <div id="loginModal" class="modal">
-      <div class="modal-content">
-        <button class="modal-close" type="button" data-close-modal>&times;</button>
-        <h2>Login</h2>
-        <p class="muted">Sign in without leaving the dashboard.</p>
-
-        <form method="post" action="{% url 'login' %}">
-          {% csrf_token %}
-          <input type="hidden" name="next" value="{{ request.path }}">
-
-          <div class="form-group">
-            <label for="modal_login_username">Username</label>
-            <input id="modal_login_username" type="text" name="username" required />
-          </div>
-
-          <div class="form-group">
-            <label for="modal_login_password">Password</label>
-            <input id="modal_login_password" type="password" name="password" required />
-          </div>
-
-          <div class="form-actions">
-            <button class="btn btn-primary" type="submit">Log in</button>
-            <button class="btn btn-secondary" type="button" data-close-modal>Cancel</button>
-          </div>
-        </form>
-      </div>
-    </div>
-
-    <div id="registerModal" class="modal">
-      <div class="modal-content">
-        <button class="modal-close" type="button" data-close-modal>&times;</button>
-        <h2>Register</h2>
-        <p class="muted">
-          Create an account without leaving the dashboard.
-        </p>
-
-        <form method="post" action="{% url 'register' %}">
-          {% csrf_token %}
-          <input type="hidden" name="next" value="{{ request.path }}">
-
-          <div class="form-group">
-            <label for="{{ register_form.username.id_for_label }}">Username</label>
-            {{ register_form.username }}
-            {% if register_form.username.help_text %}
-              <div class="helptext">{{ register_form.username.help_text|safe }}</div>
-            {% endif %}
-            {% for error in register_form.username.errors %}
-              <div class="alert alert-error">{{ error }}</div>
-            {% endfor %}
-          </div>
-
-          <div class="form-group">
-            <label for="{{ register_form.password1.id_for_label }}">Password</label>
-            {{ register_form.password1 }}
-            {% if register_form.password1.help_text %}
-              <div class="helptext">{{ register_form.password1.help_text|safe }}</div>
-            {% endif %}
-            {% for error in register_form.password1.errors %}
-              <div class="alert alert-error">{{ error }}</div>
-            {% endfor %}
-          </div>
-
-          <div class="form-group">
-            <label for="{{ register_form.password2.id_for_label }}">Confirm Password</label>
-            {{ register_form.password2 }}
-            {% if register_form.password2.help_text %}
-              <div class="helptext">{{ register_form.password2.help_text|safe }}</div>
-            {% endif %}
-            {% for error in register_form.password2.errors %}
-              <div class="alert alert-error">{{ error }}</div>
-            {% endfor %}
-          </div>
-
-          {% if register_form.non_field_errors %}
-            {% for error in register_form.non_field_errors %}
-              <div class="alert alert-error">{{ error }}</div>
-            {% endfor %}
-          {% endif %}
-
-          <div class="form-actions">
-            <button class="btn btn-primary" type="submit">Register</button>
-            <button class="btn btn-secondary" type="button" data-close-modal>Cancel</button>
-          </div>
-        </form>
-      </div>
-    </div>
-  {% endif %}
-
   <script>
-    function getCookie(name) {
-      const value = `; ${document.cookie}`;
-      const parts = value.split(`; ${name}=`);
-      if (parts.length === 2) return parts.pop().split(';').shift();
-      return null;
-    }
+    (function () {
+      const savedTheme = localStorage.getItem("theme");
+      if (savedTheme === "dark") {
+        document.body.classList.add("dark-mode");
+      }
 
-    document.addEventListener("DOMContentLoaded", () => {
-      const loginModal = document.getElementById("loginModal");
-      const registerModal = document.getElementById("registerModal");
-      const authBlocker = document.getElementById("authBlocker");
-
-      const openLoginBtn = document.getElementById("openLoginModal");
-      const openRegisterBtn = document.getElementById("openRegisterModal");
-      const openLoginFromBlocker = document.getElementById("openLoginFromBlocker");
-      const openRegisterFromBlocker = document.getElementById("openRegisterFromBlocker");
-
-      function showModal(modal) {
-        if (!modal) return;
-
-        if (authBlocker) {
-          authBlocker.classList.remove("show");
+      const toggle = document.getElementById("themeToggle");
+      if (toggle) {
+        function updateButtonText() {
+          toggle.textContent = document.body.classList.contains("dark-mode")
+            ? "Light Mode"
+            : "Dark Mode";
         }
 
-        modal.classList.add("show");
-      }
+        updateButtonText();
 
-      function hideModal(modal) {
-        if (!modal) return;
-        modal.classList.remove("show");
-
-        const bodyAuth = document.body.dataset.authenticated;
-        if (bodyAuth !== "true" && authBlocker) {
-          authBlocker.classList.add("show");
-        }
-      }
-
-      if (openLoginBtn) {
-        openLoginBtn.addEventListener("click", () => showModal(loginModal));
-      }
-
-      if (openRegisterBtn) {
-        openRegisterBtn.addEventListener("click", () => showModal(registerModal));
-      }
-
-      if (openLoginFromBlocker) {
-        openLoginFromBlocker.addEventListener("click", () => showModal(loginModal));
-      }
-
-      if (openRegisterFromBlocker) {
-        openRegisterFromBlocker.addEventListener("click", () => showModal(registerModal));
-      }
-
-      document.querySelectorAll("[data-close-modal]").forEach(btn => {
-        btn.addEventListener("click", () => {
-          hideModal(loginModal);
-          hideModal(registerModal);
+        toggle.addEventListener("click", function () {
+          document.body.classList.toggle("dark-mode");
+          localStorage.setItem(
+            "theme",
+            document.body.classList.contains("dark-mode") ? "dark" : "light"
+          );
+          updateButtonText();
         });
-      });
-
-      [loginModal, registerModal].forEach(modal => {
-        if (!modal) return;
-        modal.addEventListener("click", (e) => {
-          if (e.target === modal) {
-            hideModal(modal);
-          }
-        });
-      });
-
-      {% if open_register_modal or register_form.errors %}
-        showModal(registerModal);
-      {% endif %}
-
-      async function sendBrowserTimezone() {
-        const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-        const alreadySet = sessionStorage.getItem("tz_sent");
-
-        try {
-          await fetch("/api/set-timezone/", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "X-CSRFToken": getCookie("csrftoken"),
-            },
-            body: JSON.stringify({ timezone: tz }),
-          });
-
-          if (!alreadySet) {
-            sessionStorage.setItem("tz_sent", "1");
-            window.location.reload();
-          }
-        } catch (err) {
-          console.error("Failed to send timezone:", err);
-        }
       }
-
-      sendBrowserTimezone();
-    });
+    })();
   </script>
 
   {% block extra_scripts %}{% endblock %}
