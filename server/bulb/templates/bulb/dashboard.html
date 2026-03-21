@@ -168,7 +168,9 @@
           <div class="form-group">
             <label for="{{ form.target_brightness.id_for_label }}">Brightness</label>
             {{ form.target_brightness }}
-            <div class="muted">Leave blank if brightness should not change.</div>
+            <small id="brightness-help" class="form-help">
+              Enter a value between 1 and 100.
+            </small>
           </div>
 
           <div class="form-group">
@@ -447,4 +449,26 @@
   setInterval(refreshScheduleTable, 5000);
 </script>
 {% endif %}
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+      const lightState = document.getElementById("id_target_is_on");
+      const brightness = document.getElementById("id_target_brightness");
+      const helpText = document.getElementById("brightness-help");
+
+      function updateBrightnessState() {
+        if (!lightState.checked) {
+          brightness.value = "";
+          brightness.disabled = true;
+          helpText.style.display = "none"; 
+        } else {
+          brightness.disabled = false;
+          helpText.style.display = "block"; 
+        }
+      }
+
+      updateBrightnessState();
+
+      lightState.addEventListener("change", updateBrightnessState);
+    });
+</script>
 {% endblock %}

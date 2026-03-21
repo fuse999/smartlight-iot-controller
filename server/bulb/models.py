@@ -117,9 +117,9 @@ class LightSchedule(models.Model):
 
 class PowerReading(models.Model):
     created_at = models.DateTimeField(default=timezone.now, db_index=True)
-    current_rms = models.FloatField(help_text="Measured RMS current in amps")
-    estimated_voltage = models.FloatField(help_text="estimated voltage of the mains", default=120)
-    estimated_power_w = models.FloatField()
+    current_rms = models.FloatField(help_text="Measured current in amps")
+    estimated_voltage = models.FloatField(help_text="Estimated voltage of the mains", default=120)
+    estimated_power_w = models.FloatField(help_text="Calculated power of the mains")
     cumulative_energy_wh = models.FloatField(default=0.0)
 
     class Meta:
