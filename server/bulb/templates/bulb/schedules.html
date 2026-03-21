@@ -41,13 +41,16 @@
           </div>
 
           <div class="form-group">
-            <label for="{{ form.target_is_on.id_for_label }}">Action</label>
+            <label for="{{ form.target_is_on.id_for_label }}">Light State (check for on)</label>
             {{ form.target_is_on }}
           </div>
 
           <div class="form-group">
             <label for="{{ form.target_brightness.id_for_label }}">Brightness</label>
             {{ form.target_brightness }}
+            <small id="brightness-help" class="form-help">
+              Enter a value between 1 and 100.
+            </small>
           </div>
 
           <div class="form-group">
@@ -156,4 +159,28 @@
       </section>
     </div>
   {% endif %}
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      const lightState = document.getElementById("id_target_is_on");
+      const brightness = document.getElementById("id_target_brightness");
+      const helpText = document.getElementById("brightness-help");
+
+      function updateBrightnessState() {
+        if (!lightState.checked) {
+          brightness.value = "";
+          brightness.disabled = true;
+          helpText.style.display = "none"; 
+          brightness.style.backgroundColor = "#eee";
+        } else {
+          brightness.disabled = false;
+          helpText.style.display = "block"; 
+          brightness.style.backgroundColor = "#fff";
+        }
+      }
+
+      updateBrightnessState();
+
+      lightState.addEventListener("change", updateBrightnessState);
+    });
+  </script>
 {% endblock %}
