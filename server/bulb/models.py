@@ -53,6 +53,15 @@ class LightSchedule(models.Model):
         blank=True,
     )
 
+    # New: whether this is a repeating weekly schedule
+    repeat = models.BooleanField(default=False)
+
+    # Used for one-time schedules
+    scheduled_for = models.DateTimeField(null=True, blank=True)
+
+    # Used for repeating schedules
+    time_of_day = models.TimeField(null=True, blank=True)
+
     monday = models.BooleanField(default=False)
     tuesday = models.BooleanField(default=False)
     wednesday = models.BooleanField(default=False)
@@ -60,9 +69,6 @@ class LightSchedule(models.Model):
     friday = models.BooleanField(default=False)
     saturday = models.BooleanField(default=False)
     sunday = models.BooleanField(default=False)
-
-    # Time chosen by the user for this schedule.
-    time_of_day = models.TimeField()
 
     # The timezone this schedule should always obey.
     # Store the browser/session timezone at creation time.
@@ -107,12 +113,18 @@ class LightSchedule(models.Model):
             parts.append("Sun")
         return ", ".join(parts) if parts else "No days selected"
 
+
     def __str__(self) -> str:
         bri = "" if self.target_brightness is None else f", bri={self.target_brightness}"
+
+        if self.repeat:
+            schedule_part = f"[{self.days_display()} @ {self.time_of_day:%H:%M} {self.timezone_name}]"
+        else:
+            schedule_part = f"[once @ {self.scheduled_for:%Y-%m-%d %H:%M} {self.timezone_name}]"
+
         return (
             f"{'ENABLED' if self.enabled else 'DISABLED'} "
-            f"[{self.days_display()} @ {self.time_of_day:%H:%M} {self.timezone_name}] "
-            f"-> on={self.target_is_on}{bri}"
+            f"{schedule_part} -> on={self.target_is_on}{bri}"
         )
 
 class PowerReading(models.Model):

@@ -53,10 +53,21 @@
             </small>
           </div>
 
+        <div class="form-group">
+          <label>{{ form.repeat }} Repeating Schedule</label>
+        </div>
+
+        <div class="form-group" id="scheduled-for-group">
+          <label for="{{ form.scheduled_for.id_for_label }}">Schedule For</label>
+          {{ form.scheduled_for }}
+        </div>
+
+        
+        <div id="repeat-fields" style="display:none;">
           <div class="form-group">
             <label for="{{ form.time_of_day.id_for_label }}">Time of Day</label>
             {{ form.time_of_day }}
-          </div>
+        </div>
 
           <div class="form-group">
             <label>Repeat On</label>
@@ -69,6 +80,7 @@
               <label>{{ form.saturday }} Sat</label>
               <label>{{ form.sunday }} Sun</label>
             </div>
+          </div>
           </div>
 
           <div class="form-group">
@@ -97,8 +109,8 @@
               <tr>
                 <th>Status</th>
                 <th>Name</th>
-                <th>Days</th>
-                <th>Time</th>
+                <th>Type</th>
+                <th>Schedule</th>
                 <th>Schedule TZ</th>
                 <th>Action</th>
                 <th>Next Run</th>
@@ -112,10 +124,28 @@
                   <td class="{% if s.enabled %}enabled{% else %}disabled{% endif %}">
                     {{ s.enabled|yesno:"ENABLED,DISABLED" }}
                   </td>
+
                   <td>{{ s.name|default:"—" }}</td>
-                  <td>{{ s.days_display }}</td>
-                  <td>{{ s.time_of_day|time:"g:i A" }}</td>
+
+                  <td>
+                    {% if s.repeat %}
+                      Repeating
+                    {% else %}
+                      One-time
+                    {% endif %}
+                  </td>
+
+                  <td>
+                    {% if s.repeat %}
+                      {{ s.days_display }}<br>
+                      {{ s.time_of_day|time:"g:i A" }}
+                    {% else %}
+                      {{ s.scheduled_for|date:"Y-m-d g:i A" }}
+                    {% endif %}
+                  </td>
+
                   <td>{{ s.timezone_name }}</td>
+
                   <td>
                     {% if s.target_is_on %}
                       Turn ON
@@ -126,8 +156,10 @@
                       Turn OFF
                     {% endif %}
                   </td>
+
                   <td>{{ s.next_run_at|date:"Y-m-d g:i A T"|default:"—" }}</td>
                   <td>{{ s.last_run_at|date:"Y-m-d g:i A T"|default:"—" }}</td>
+
                   <td>
                     <div class="btn-row" style="margin: 0;">
                       <form method="post" action="{% url 'toggle_schedule' s.id %}" style="display:inline;">
@@ -159,26 +191,42 @@
       </section>
     </div>
   {% endif %}
-  <script>
-    document.addEventListener("DOMContentLoaded", function () {
-      const lightState = document.getElementById("id_target_is_on");
-      const brightness = document.getElementById("id_target_brightness");
-      const helpText = document.getElementById("brightness-help");
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const repeatToggle = document.getElementById("id_repeat");
+    const scheduledForGroup = document.getElementById("scheduled-for-group");
+    const repeatFields = document.getElementById("repeat-fields");
 
-      function updateBrightnessState() {
-        if (!lightState.checked) {
-          brightness.value = "";
-          brightness.disabled = true;
-          helpText.style.display = "none"; 
-        } else {
-          brightness.disabled = false;
-          helpText.style.display = "block"; 
-        }
+    const lightState = document.getElementById("id_target_is_on");
+    const brightness = document.getElementById("id_target_brightness");
+    const helpText = document.getElementById("brightness-help");
+
+    function updateBrightnessState() {
+      if (!lightState.checked) {
+        brightness.value = "";
+        brightness.disabled = true;
+        helpText.style.display = "none";
+      } else {
+        brightness.disabled = false;
+        helpText.style.display = "block";
       }
+    }
 
-      updateBrightnessState();
+    function updateScheduleMode() {
+      if (repeatToggle.checked) {
+        scheduledForGroup.style.display = "none";
+        repeatFields.style.display = "block";
+      } else {
+        scheduledForGroup.style.display = "block";
+        repeatFields.style.display = "none";
+      }
+    }
 
-      lightState.addEventListener("change", updateBrightnessState);
-    });
-  </script>
+    updateBrightnessState();
+    updateScheduleMode();
+
+    lightState.addEventListener("change", updateBrightnessState);
+    repeatToggle.addEventListener("change", updateScheduleMode);
+  });
+</script>
 {% endblock %}

@@ -12,6 +12,8 @@ class LightScheduleForm(forms.ModelForm):
             "name",
             "target_is_on",
             "target_brightness",
+            "repeat",
+            "scheduled_for",
             "time_of_day",
             "monday",
             "tuesday",
@@ -25,14 +27,29 @@ class LightScheduleForm(forms.ModelForm):
         labels = {
             "target_is_on": "Turn Light On",
             "target_brightness": "Brightness",
+            "scheduled_for": "Schedule For",
+            "time_of_day": "Time of Day",
             "enabled": "Schedule Enabled",
         }
         widgets = {
+            "scheduled_for": forms.DateTimeInput(
+                attrs={"type": "datetime-local", "class": "form-control"},
+                format="%Y-%m-%dT%H:%M",
+            ),
             "time_of_day": forms.TimeInput(attrs={"type": "time"}),
         }
 
+        
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["scheduled_for"].input_formats = ["%Y-%m-%dT%H:%M"]
+
     def clean(self):
         cleaned = super().clean()
+
+        repeat = cleaned.get("repeat")
+        scheduled_for = cleaned.get("scheduled_for")
+        time_of_day = cleaned.get("time_of_day")
 
         target_is_on = cleaned.get("target_is_on")
         target_brightness = cleaned.get("target_brightness")
@@ -56,8 +73,23 @@ class LightScheduleForm(forms.ModelForm):
             cleaned.get("sunday"),
         ]
 
-        if not any(day_fields):
-            raise forms.ValidationError("Please select at least one day of the week.")
+        if repeat:
+            if not time_of_day:
+                self.add_error("time_of_day", "Please choose a time.")
+            if not any(day_fields):
+                raise forms.ValidationError("Please select at least one weekday for repeating schedules.")
+            cleaned["scheduled_for"] = None
+        else:
+            if not scheduled_for:
+                self.add_error("scheduled_for", "Please choose a date and time.")
+            cleaned["time_of_day"] = None
+            cleaned["monday"] = False
+            cleaned["tuesday"] = False
+            cleaned["wednesday"] = False
+            cleaned["thursday"] = False
+            cleaned["friday"] = False
+            cleaned["saturday"] = False
+            cleaned["sunday"] = False
 
         return cleaned
 
