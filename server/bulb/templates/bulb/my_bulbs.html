@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+
+{% block title %}My Devices{% endblock %}
+
+{% block content %}
+  <section class="hero">
+    <h1>My Devices</h1>
+    <p>
+      View and manage your smart light controllers. Select one to control it, or claim a new device.
+    </p>
+
+    {% if request.user.is_authenticated %}
+      <div class="btn-row" style="margin-top:16px;">
+        <a class="btn btn-primary" href="{% url 'claim_bulb' %}">
+          + Claim New Device
+        </a>
+      </div>
+    {% endif %}
+  </section>
+
+  {% if messages %}
+    {% for message in messages %}
+      <section class="card">
+        <p>{{ message }}</p>
+      </section>
+    {% endfor %}
+  {% endif %}
+
+  {% if not request.user.is_authenticated %}
+    <section class="card">
+      <h2>Account Access</h2>
+      <p>Please log in or create an account to manage your devices.</p>
+      <div class="btn-row">
+        <a class="btn btn-primary" href="{% url 'login' %}">Log In</a>
+        <a class="btn btn-secondary" href="{% url 'register' %}">Create Account</a>
+      </div>
+    </section>
+
+  {% elif bulbs %}
+    <section class="card">
+      <h2>Your Devices</h2>
+
+      <div class="grid">
+        {% for bulb in bulbs %}
+          <section class="card" style="margin:0;">
+            <h3 style="margin-top:0;">{{ bulb.name }}</h3>
+
+            {% if bulb.location_name %}
+              <p class="muted" style="margin-top:-4px;">
+                {{ bulb.location_name }}
+              </p>
+            {% endif %}
+
+            <p>
+              <strong>Power:</strong>
+              <span class="state-badge {% if bulb.is_on %}state-on{% else %}state-off{% endif %}">
+                {{ bulb.is_on|yesno:"ON,OFF" }}
+              </span>
+            </p>
+
+            <p>
+              <strong>Brightness:</strong>
+              {{ bulb.brightness|default:100 }}%
+            </p>
+
+            <p>
+              <strong>Connection:</strong>
+              {% if bulb.is_online %}
+                <span class="enabled">Online</span>
+              {% else %}
+                <span class="disabled">Offline</span>
+              {% endif %}
+            </p>
+
+            <p>
+              <strong>Last Seen:</strong>
+              {% if bulb.last_seen_at %}
+                {{ bulb.last_seen_at|date:"Y-m-d g:i A T" }}
+              {% else %}
+                Never
+              {% endif %}
+            </p>
+
+            {% if selected_bulb and bulb.id == selected_bulb.id %}
+              <p class="muted">
+                <strong>Currently selected</strong>
+              </p>
+            {% endif %}
+
+            <div class="btn-row">
+              <a class="btn btn-primary" href="/dashboard/?bulb={{ bulb.id }}">
+                Open Dashboard
+              </a>
+
+              <a class="btn btn-secondary" href="/bulbs/?bulb={{ bulb.id }}">
+                Select
+              </a>
+
+              {% if bulb.owner_id == request.user.id or request.user.is_superuser %}
+                <form method="post"
+                      action="{% url 'unclaim_bulb_action' bulb.id %}"
+                      onsubmit="return confirm('Remove this device from your account? It will become claimable again.');"
+                      style="display:inline;">
+                  {% csrf_token %}
+                  <button class="btn btn-danger" type="submit">Unclaim</button>
+                </form>
+              {% endif %}
+            </div>
+          </section>
+        {% endfor %}
+      </div>
+    </section>
+
+  {% else %}
+    <section class="card" style="text-align:center; max-width:700px; margin:0 auto;">
+      <h2>No Devices Yet</h2>
+
+      <p>
+        You have not added any smart light controllers yet.
+      </p>
+
+      <p class="muted">
+        Power on an unclaimed controller and it should appear on the claim page for about two minutes after boot.
+      </p>
+
+      <div class="btn-row" style="justify-content:center; margin-top:18px;">
+        <a class="btn btn-primary" href="{% url 'claim_bulb' %}">
+          Claim Your First Device
+        </a>
+      </div>
+    </section>
+  {% endif %}
+{% endblock %}

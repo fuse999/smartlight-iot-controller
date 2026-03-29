@@ -1,25 +1,3 @@
-/*
-  ============================================================
-  API CLIENT (IMPLEMENTATION)
-  ============================================================
-
-  Implements:
-    - GET /api/light/desired/
-    - POST /api/light/report/
-
-  Requirements:
-    - WiFi must be connected
-    - secrets.h must define:
-        WIFI_SSID
-        WIFI_PASS
-        SERVER_BASE
-        DEVICE_TOKEN
-    - config.h must define:
-        DEVICE_ID
-        PATH_DESIRED
-        PATH_REPORT
-*/
-
 #include "api_client.h"
 #include "config.h"
 #include "secrets.h"
@@ -28,41 +6,62 @@
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
 
-
-// ============================================================
-// makeUrl()
-// ============================================================
-//
-// Concatenates the server base URL with a path.
-//
-// Example:
-//   SERVER_BASE = "http://192.168.1.111:8000"
-//   path       = "/api/light/desired/"
-//
-// Result:
-//   "http://192.168.1.111:8000/api/light/desired/"
-//
 String makeUrl(const char* path) {
   return String(SERVER_BASE) + String(path);
 }
 
+static void addStandardAuthHeaders(HTTPClient& http) {
+  http.addHeader("Authorization", String("Bearer ") + DEVICE_TOKEN);
+  http.addHeader("Accept", "application/json");
+}
 
-// ============================================================
-// api_fetch_desired()
-// ============================================================
-//
-// Sends a GET request to PATH_DESIRED to retrieve the desired
-// light state.
-//
-// Expected JSON response example:
-//   {
-//     "is_on": true,
-//     "brightness": 75
-//   }
-//
-// Output:
-//   Fills the 'out' LightState struct and returns true on success.
-//
+bool api_register_device() {
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("api_register_device: WiFi not connected");
+    return false;
+  }
+
+  const String url = makeUrl(PATH_REGISTER);
+  Serial.print("Register URL: ");
+  Serial.println(url);
+
+  HTTPClient http;
+  http.begin(url);
+
+  addStandardAuthHeaders(http);
+  http.addHeader("Content-Type", "application/json");
+
+  StaticJsonDocument<192> doc;
+  doc["device_id"] = DEVICE_ID;
+  doc["name"] = DEVICE_NAME;
+  doc["firmware_version"] = FIRMWARE_VERSION;
+
+  String payload;
+  serializeJson(doc, payload);
+
+  Serial.print("Register payload: ");
+  Serial.println(payload);
+
+  int code = http.POST(payload);
+
+  Serial.print("POST register status: ");
+  Serial.println(code);
+
+  if (code < 0) {
+    Serial.print("HTTP error text: ");
+    Serial.println(http.errorToString(code));
+  }
+
+  String resp = http.getString();
+  if (resp.length() > 0) {
+    Serial.println("Server response:");
+    Serial.println(resp);
+  }
+
+  http.end();
+  return (code >= 200 && code < 300);
+}
+
 bool api_fetch_desired(LightState& out) {
   if (WiFi.status() != WL_CONNECTED) {
     Serial.println("api_fetch_desired: WiFi not connected");
@@ -70,15 +69,8 @@ bool api_fetch_desired(LightState& out) {
   }
 
   HTTPClient http;
-
-  // Build URL to desired endpoint
   http.begin(makeUrl(PATH_DESIRED));
-
-  // Auth header (Bearer token used to identify device)
-  http.addHeader("Authorization", String("Bearer ") + DEVICE_TOKEN);
-
-  // Inform server we want JSON back
-  http.addHeader("Accept", "application/json");
+  addStandardAuthHeaders(http);
 
   int code = http.GET();
 
@@ -86,7 +78,6 @@ bool api_fetch_desired(LightState& out) {
     Serial.print("GET desired failed, HTTP code: ");
     Serial.println(code);
 
-    // Helpful for debugging API responses
     String errBody = http.getString();
     if (errBody.length() > 0) {
       Serial.println("Server response:");
@@ -97,11 +88,9 @@ bool api_fetch_desired(LightState& out) {
     return false;
   }
 
-  // Read response body as string
   String body = http.getString();
   http.end();
 
-  // Parse JSON response
   StaticJsonDocument<256> doc;
   DeserializationError err = deserializeJson(doc, body);
 
@@ -113,30 +102,11 @@ bool api_fetch_desired(LightState& out) {
     return false;
   }
 
-  // Extract fields with fallback defaults if missing
   out.is_on = doc["is_on"] | false;
   out.brightness = doc["brightness"] | 100;
-
   return true;
 }
 
-
-// ============================================================
-// api_report_applied()
-// ============================================================
-//
-// Sends a POST request to PATH_REPORT to report back the
-// applied state.
-//
-// Payload example:
-//   {
-//     "device_id": "esp32c6-001",
-//     "is_on": true,
-//     "brightness": 75
-//   }
-//
-// Returns true on 2xx success codes.
-//
 bool api_report_applied(const LightState& s) {
   if (WiFi.status() != WL_CONNECTED) {
     Serial.println("api_report_applied: WiFi not connected");
@@ -146,13 +116,9 @@ bool api_report_applied(const LightState& s) {
   HTTPClient http;
   http.begin(makeUrl(PATH_REPORT));
 
-  // Auth header (Bearer token used to identify device)
-  http.addHeader("Authorization", String("Bearer ") + DEVICE_TOKEN);
-
-  // We are sending JSON in the body
+  addStandardAuthHeaders(http);
   http.addHeader("Content-Type", "application/json");
 
-  // Build JSON payload
   StaticJsonDocument<192> doc;
   doc["device_id"] = DEVICE_ID;
   doc["is_on"] = s.is_on;
@@ -166,7 +132,6 @@ bool api_report_applied(const LightState& s) {
   Serial.print("POST report status: ");
   Serial.println(code);
 
-  // Print server response (useful during development)
   String resp = http.getString();
   if (resp.length() > 0) {
     Serial.println("Server response:");
@@ -174,7 +139,5 @@ bool api_report_applied(const LightState& s) {
   }
 
   http.end();
-
-  // 200–299 = success
   return (code >= 200 && code < 300);
 }

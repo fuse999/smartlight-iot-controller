@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block title %}Pair Bulb{% endblock %}
+
+{% block content %}
+  <section class="hero">
+    <h1>Pair a Bulb</h1>
+    <p>Enter the pairing code shown by the device or returned during registration.</p>
+  </section>
+
+  <section class="card" style="max-width:600px; margin:0 auto;">
+    <h2>Add Bulb</h2>
+
+    {% if messages %}
+      {% for message in messages %}
+        <div class="alert {% if message.tags == 'error' %}alert-error{% else %}alert-success{% endif %}">
+          {{ message }}
+        </div>
+      {% endfor %}
+    {% endif %}
+
+    <form method="post">
+      {% csrf_token %}
+
+      <div class="form-group">
+        <label for="{{ form.claim_code.id_for_label }}">Pairing Code</label>
+        {{ form.claim_code }}
+      </div>
+
+      {% if form.errors %}
+        <div class="alert alert-error">
+          {{ form.errors }}
+        </div>
+      {% endif %}
+
+      <div class="btn-row" style="margin-top:16px;">
+        <button class="btn btn-primary" type="submit">Pair Bulb</button>
+        <a class="btn btn-secondary" href="{% url 'my_bulbs' %}">Back</a>
+      </div>
+    </form>
+  </section>
+{% endblock %}

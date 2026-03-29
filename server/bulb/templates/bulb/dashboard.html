@@ -11,7 +11,29 @@
     </p>
   </section>
 
-  {% if request.user.is_authenticated and can_control %}
+  {% if request.user.is_authenticated and bulbs %}
+    <section class="card" style="margin-bottom:20px;">
+      <h2>Select Bulb</h2>
+
+      <form method="get" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+        <select name="bulb" onchange="this.form.submit()" class="form-control">
+          {% for b in bulbs %}
+            <option value="{{ b.id }}" {% if selected_bulb and b.id == selected_bulb.id %}selected{% endif %}>
+              {{ b.name }}
+            </option>
+          {% endfor %}
+        </select>
+
+        {% if selected_bulb %}
+          <span class="muted">
+            Selected: <strong>{{ selected_bulb.name }}</strong>
+          </span>
+        {% endif %}
+      </form>
+    </section>
+  {% endif %}
+
+  {% if request.user.is_authenticated and can_control and selected_bulb %}
     <div class="grid">
       <section class="card">
         <h2>Manual Light Control</h2>
@@ -23,6 +45,10 @@
             class="state-badge {% if state.is_on %}state-on{% else %}state-off{% endif %}">
             {{ state.is_on|yesno:"ON,OFF" }}
           </span>
+        </p>
+
+        <p class="muted" style="margin-top:-6px;">
+          Controlling bulb: <strong>{{ selected_bulb.name }}</strong>
         </p>
 
         <div class="btn-row">
@@ -48,7 +74,7 @@
       <section class="card">
         <h2>Schedule Controls</h2>
         <p class="muted">
-          Create a recurring weekly schedule for the smart light.
+          Create a recurring weekly schedule for <strong>{{ selected_bulb.name }}</strong>.
         </p>
 
         <div class="form-actions">
@@ -64,7 +90,7 @@
 
       <div id="scheduleTableWrapper">
         {% if schedules %}
-          <table>
+          <table id="scheduleTable">
             <thead>
               <tr>
                 <th>Status</th>
@@ -104,7 +130,7 @@
                     <div class="btn-row" style="margin:0;">
                       <form method="post" action="{% url 'toggle_schedule' s.id %}" style="display:inline;">
                         {% csrf_token %}
-                        <input type="hidden" name="next" value="{{ request.path }}">
+                        <input type="hidden" name="next" value="{{ request.path }}?bulb={{ selected_bulb.id }}">
                         <button class="btn btn-secondary" type="submit">
                           {% if s.enabled %}Disable{% else %}Enable{% endif %}
                         </button>
@@ -112,7 +138,7 @@
 
                       <form method="post" action="{% url 'delete_schedule' s.id %}" style="display:inline;" onsubmit="return confirm('Delete this schedule?');">
                         {% csrf_token %}
-                        <input type="hidden" name="next" value="{{ request.path }}">
+                        <input type="hidden" name="next" value="{{ request.path }}?bulb={{ selected_bulb.id }}">
                         <button class="btn btn-danger" type="submit">Delete</button>
                       </form>
                     </div>
@@ -219,20 +245,30 @@
       </div>
     </section>
 
+  {% elif request.user.is_authenticated and not bulbs %}
+    <section class="card">
+      <h2>No Bulbs Yet</h2>
+      <p>
+        Your account does not currently have any bulbs assigned to it.
+      </p>
+    </section>
+
   {% else %}
     <section class="card">
       <h2>Access Restricted</h2>
       <p>
         You are logged in, but your account does not currently have permission to control
-        the bulb or manage schedules.
+        the selected bulb or manage schedules.
       </p>
     </section>
   {% endif %}
 {% endblock %}
 
 {% block extra_scripts %}
-{% if request.user.is_authenticated and can_control %}
+{% if request.user.is_authenticated and can_control and selected_bulb %}
 <script>
+  const selectedBulbId = "{{ selected_bulb.id }}";
+
   function getCookie(name) {
     const value = `; ${document.cookie}`;
     const parts = value.split(`; ${name}=`);
@@ -243,7 +279,7 @@
     const status = document.getElementById("status");
     status.textContent = "Sending...";
 
-    const res = await fetch("/api/set-power/", {
+    const res = await fetch(`/api/set-power/?bulb=${selectedBulbId}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -268,7 +304,7 @@
     const status = document.getElementById("status");
     status.textContent = "Sending brightness...";
 
-    const res = await fetch("/api/set-brightness/", {
+    const res = await fetch(`/api/set-brightness/?bulb=${selectedBulbId}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -289,7 +325,7 @@
 
   async function pollForStateChange() {
     try {
-      const res = await fetch("/api/light-state/", {
+      const res = await fetch(`/api/light-state/?bulb=${selectedBulbId}`, {
         headers: {
           "X-Requested-With": "XMLHttpRequest"
         }
@@ -322,7 +358,7 @@
 
   async function refreshScheduleTable() {
     try {
-      const res = await fetch("/api/schedules/status/", {
+      const res = await fetch(`/api/schedule-status/?bulb=${selectedBulbId}`, {
         headers: {
           "X-Requested-With": "XMLHttpRequest"
         }
@@ -334,7 +370,7 @@
 
       const tbody = document.getElementById("scheduleTableBody");
       const noSchedulesMessage = document.getElementById("noSchedulesMessage");
-      const existingTable = tbody ? tbody.closest("table") : document.getElementById("scheduleTable");
+      const existingTable = document.getElementById("scheduleTable");
 
       if (!tbody || !noSchedulesMessage || !existingTable) return;
 
@@ -358,17 +394,17 @@
 
         const actionsHtml = `
           <div class="btn-row" style="margin:0;">
-            <form method="post" action="/schedules/${s.id}/toggle/" style="display:inline;">
+            <form method="post" action="/schedules/toggle/${s.id}/" style="display:inline;">
               <input type="hidden" name="csrfmiddlewaretoken" value="${getCookie("csrftoken")}">
-              <input type="hidden" name="next" value="{{ request.path }}">
+              <input type="hidden" name="next" value="{{ request.path }}?bulb={{ selected_bulb.id }}">
               <button class="btn btn-secondary" type="submit">
                 ${s.enabled ? "Disable" : "Enable"}
               </button>
             </form>
 
-            <form method="post" action="/schedules/${s.id}/delete/" style="display:inline;" onsubmit="return confirm('Delete this schedule?');">
+            <form method="post" action="/schedules/delete/${s.id}/" style="display:inline;" onsubmit="return confirm('Delete this schedule?');">
               <input type="hidden" name="csrfmiddlewaretoken" value="${getCookie("csrftoken")}">
-              <input type="hidden" name="next" value="{{ request.path }}">
+              <input type="hidden" name="next" value="{{ request.path }}?bulb={{ selected_bulb.id }}">
               <button class="btn btn-danger" type="submit">Delete</button>
             </form>
           </div>
@@ -449,26 +485,31 @@
   setInterval(refreshScheduleTable, 5000);
 </script>
 {% endif %}
+
 <script>
-    document.addEventListener("DOMContentLoaded", function () {
-      const lightState = document.getElementById("id_target_is_on");
-      const brightness = document.getElementById("id_target_brightness");
-      const helpText = document.getElementById("brightness-help");
+  document.addEventListener("DOMContentLoaded", function () {
+    const lightState = document.getElementById("id_target_is_on");
+    const brightness = document.getElementById("id_target_brightness");
+    const helpText = document.getElementById("brightness-help");
 
-      function updateBrightnessState() {
-        if (!lightState.checked) {
-          brightness.value = "";
-          brightness.disabled = true;
-          helpText.style.display = "none"; 
-        } else {
-          brightness.disabled = false;
-          helpText.style.display = "block"; 
-        }
+    function updateBrightnessState() {
+      if (!lightState || !brightness || !helpText) return;
+
+      if (!lightState.checked) {
+        brightness.value = "";
+        brightness.disabled = true;
+        helpText.style.display = "none";
+      } else {
+        brightness.disabled = false;
+        helpText.style.display = "block";
       }
+    }
 
-      updateBrightnessState();
+    updateBrightnessState();
 
+    if (lightState) {
       lightState.addEventListener("change", updateBrightnessState);
-    });
+    }
+  });
 </script>
 {% endblock %}

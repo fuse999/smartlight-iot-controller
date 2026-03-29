@@ -1,30 +1,44 @@
-<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8" />
-  <title>Register</title>
-  <style>
-    body { font-family: sans-serif; padding: 24px; max-width: 420px; margin: 0 auto; }
-    input { width: 100%; padding: 10px; margin: 8px 0; }
-    button { padding: 10px 16px; }
-    .error { color: #b00; }
-  </style>
-</head>
-<body>
+{% extends "base.html" %}
 
-<h1>Create Account</h1>
+{% block title %}Create Account{% endblock %}
 
-<form method="post">
-  {% csrf_token %}
-  {{ form.as_p }}
+{% block content %}
+  <section class="hero">
+    <h1>Create Account</h1>
+    <p>Create an account to manage and claim smart light controllers.</p>
+  </section>
 
-  <button type="submit">Register</button>
-</form>
+  <section class="card" style="max-width:600px; margin:0 auto;">
+    <h2>Register</h2>
 
-<p>
-  Already have an account?
-  <a href="/accounts/login/">Login</a>
-</p>
+    <form method="post">
+      {% csrf_token %}
 
-</body>
-</html>
+      <div class="form-group">
+        <label for="{{ register_form.username.id_for_label }}">Username</label>
+        {{ register_form.username }}
+      </div>
+
+      <div class="form-group">
+        <label for="{{ register_form.password1.id_for_label }}">Password</label>
+        {{ register_form.password1 }}
+      </div>
+
+      <div class="form-group">
+        <label for="{{ register_form.password2.id_for_label }}">Confirm Password</label>
+        {{ register_form.password2 }}
+      </div>
+
+      {% if register_form.errors %}
+        <div class="alert alert-error" style="margin-top:14px;">
+          {{ register_form.errors }}
+        </div>
+      {% endif %}
+
+      <div class="btn-row" style="margin-top:16px;">
+        <button class="btn btn-primary" type="submit">Create Account</button>
+        <a class="btn btn-secondary" href="{% url 'home' %}">Cancel</a>
+      </div>
+    </form>
+  </section>
+{% endblock %}
