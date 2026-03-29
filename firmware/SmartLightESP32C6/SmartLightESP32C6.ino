@@ -1,23 +1,3 @@
-/*
-  ============================================================
-  SMART LIGHT MAIN PROGRAM
-  ============================================================
-
-  Firmware Execution Flow:
-
-    1. Initialize hardware
-    2. Connect to WiFi
-    3. Enter loop:
-         - Ensure WiFi connection
-         - Poll server for desired state
-         - If state changed:
-              • Apply state to hardware
-              • Report applied state back to server
-
-  The main file intentionally contains minimal logic.
-  All heavy lifting is done in modules.
-*/
-
 #include <Arduino.h>
 
 #include "config.h"
@@ -32,28 +12,31 @@ void setup() {
   Serial.begin(115200);
   delay(200);
 
-  light_controller_init();    // Initialize LEDs / PWM
-  wifi_connect_blocking();    // Connect to WiFi
+  light_controller_init();
+  wifi_connect_blocking();
+
+  Serial.println("Registering device with server...");
+  if (api_register_device()) {
+    Serial.println("Device registration successful.");
+  } else {
+    Serial.println("Device registration failed.");
+  }
 }
 
 void loop() {
-  wifi_ensure_connected();    // Maintain connection
+  wifi_ensure_connected();
 
   const uint32_t now = millis();
 
-  // Poll server at defined interval
   if (now - lastPoll >= POLL_INTERVAL_MS) {
     lastPoll = now;
 
     LightState desired;
 
     if (api_fetch_desired(desired)) {
-
       LightState applied = light_controller_get_applied();
 
-      // Only apply if state changed
       if (!statesEqual(desired, applied)) {
-
         Serial.print("Applying: on=");
         Serial.print(desired.is_on);
         Serial.print(" brightness=");
@@ -65,5 +48,5 @@ void loop() {
     }
   }
 
-  delay(10);  // Small delay to reduce CPU load
+  delay(10);
 }

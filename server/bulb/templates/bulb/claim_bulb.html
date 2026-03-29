@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+
+{% block title %}Claim Device{% endblock %}
+
+{% block content %}
+  <section class="hero">
+    <h1>Claim a Device</h1>
+    <p>
+      Power on an unclaimed smart light controller. It will appear here automatically
+      for about two minutes after boot, and then you can claim it to your account.
+    </p>
+  </section>
+
+  {% if messages %}
+    {% for message in messages %}
+      <section class="card">
+        <p>{{ message }}</p>
+      </section>
+    {% endfor %}
+  {% endif %}
+
+  <section class="card">
+    <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
+      <div>
+        <h2 style="margin-bottom:6px;">Available Controllers</h2>
+        <p class="muted" style="margin:0;">
+          This page refreshes automatically every 5 seconds.
+        </p>
+      </div>
+
+      <div class="btn-row" style="margin:0;">
+        <a class="btn btn-secondary" href="{% url 'my_bulbs' %}">Back to My Devices</a>
+      </div>
+    </div>
+
+    <div id="claimableDevicesArea" style="margin-top:20px;">
+      {% if claimable_bulbs %}
+        <div class="grid">
+          {% for bulb in claimable_bulbs %}
+            <section class="card" style="margin:0;">
+              <h3 style="margin-top:0;">{{ bulb.name }}</h3>
+
+              {% if bulb.location_name %}
+                <p class="muted">{{ bulb.location_name }}</p>
+              {% endif %}
+
+              <p><strong>Firmware:</strong> {{ bulb.firmware_version|default:"Unknown" }}</p>
+
+              <p>
+                <strong>Status:</strong>
+                {% if bulb.is_online %}
+                  <span class="enabled">Online</span>
+                {% else %}
+                  <span class="disabled">Offline</span>
+                {% endif %}
+              </p>
+
+              <p>
+                <strong>Last Seen:</strong>
+                {% if bulb.last_seen_at %}
+                  {{ bulb.last_seen_at|date:"Y-m-d g:i A T" }}
+                {% else %}
+                  Never
+                {% endif %}
+              </p>
+
+              <p>
+                <strong>Claim Window Ends:</strong>
+                {% if bulb.pairing_expires_at %}
+                  {{ bulb.pairing_expires_at|date:"Y-m-d g:i A T" }}
+                {% else %}
+                  —
+                {% endif %}
+              </p>
+
+              <form method="post" action="{% url 'claim_bulb_action' bulb.id %}">
+                {% csrf_token %}
+                <button class="btn btn-primary" type="submit">Claim This Device</button>
+              </form>
+            </section>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p class="muted">
+          No controllers are currently available to claim. Power on an unclaimed controller
+          and wait a few seconds for it to appear here.
+        </p>
+      {% endif %}
+    </div>
+  </section>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  setInterval(() => {
+    window.location.reload();
+  }, 5000);
+</script>
+{% endblock %}
