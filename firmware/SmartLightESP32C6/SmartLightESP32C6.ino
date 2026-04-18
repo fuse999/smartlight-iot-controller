@@ -5,6 +5,7 @@
 #include "wifi_mgr.h"
 #include "api_client.h"
 #include "light_controller.h"
+#include "power_sensor.h"
 
 static uint32_t lastPoll = 0;
 
@@ -13,6 +14,7 @@ void setup() {
   delay(200);
 
   light_controller_init();
+  power_sensor_init();
   wifi_connect_blocking();
 
   Serial.println("Registering device with server...");
@@ -49,4 +51,18 @@ void loop() {
   }
 
   delay(10);
+
+  static uint32_t lastPowerRead = 0;
+  if (now - lastPowerRead >= 5000) {
+    lastPowerRead = now;
+
+    float amps = power_sensor_read_rms_amps(500, 200);
+    float apparentPower = amps * 120.0f;
+
+    Serial.print("Irms: ");
+    Serial.print(amps, 3);
+    Serial.print(" A | Apparent Power: ");
+    Serial.print(apparentPower, 1);
+    Serial.println(" VA");
+  }
 }
