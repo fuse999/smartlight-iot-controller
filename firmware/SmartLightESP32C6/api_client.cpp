@@ -107,7 +107,13 @@ bool api_fetch_desired(LightState& out) {
   return true;
 }
 
-bool api_report_applied(const LightState& s) {
+bool api_report_applied(
+  const LightState& s,
+  float currentRms,
+  float estimatedVoltage,
+  float estimatedPowerW,
+  float cumulativeEnergyWh
+) {
   if (WiFi.status() != WL_CONNECTED) {
     Serial.println("api_report_applied: WiFi not connected");
     return false;
@@ -119,10 +125,14 @@ bool api_report_applied(const LightState& s) {
   addStandardAuthHeaders(http);
   http.addHeader("Content-Type", "application/json");
 
-  StaticJsonDocument<192> doc;
+  StaticJsonDocument<256> doc;
   doc["device_id"] = DEVICE_ID;
   doc["is_on"] = s.is_on;
   doc["brightness"] = s.brightness;
+  doc["current_rms"] = currentRms;
+  doc["estimated_voltage"] = estimatedVoltage;
+  doc["estimated_power_w"] = estimatedPowerW;
+  doc["cumulative_energy_wh"] = cumulativeEnergyWh;
 
   String payload;
   serializeJson(doc, payload);
@@ -131,6 +141,11 @@ bool api_report_applied(const LightState& s) {
 
   Serial.print("POST report status: ");
   Serial.println(code);
+
+  if (code < 0) {
+    Serial.print("HTTP error text: ");
+    Serial.println(http.errorToString(code));
+  }
 
   String resp = http.getString();
   if (resp.length() > 0) {

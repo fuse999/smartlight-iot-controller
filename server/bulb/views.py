@@ -12,6 +12,10 @@ from django.views.decorators.http import require_POST
 from .forms import LightScheduleForm, RegisterForm
 from .models import Bulb, BulbAccess, LightSchedule
 from .services import (
+    DEVICE_OFFLINE_AFTER_SECONDS,
+    get_account_power_summary,
+    get_bulb_power_summary,
+    refresh_bulb_online_statuses,
     refresh_next_run,
     set_bulb_brightness,
     set_bulb_power,
@@ -21,7 +25,13 @@ from .services import (
 )
 
 
+# ---------------------------------------------------------
+# Helper: Return bulbs this user is allowed to access
+# ---------------------------------------------------------
 def _accessible_bulbs_for_user(user):
+    # Refresh online/offline flags before showing bulb data.
+    refresh_bulb_online_statuses()
+
     if not user.is_authenticated:
         return Bulb.objects.none()
 
@@ -42,6 +52,9 @@ def _accessible_bulbs_for_user(user):
     return (owned | shared).distinct().select_related("owner").order_by("name", "id")
 
 
+# ---------------------------------------------------------
+# Helper: Pick selected bulb from query string or default
+# ---------------------------------------------------------
 def _selected_bulb_for_request(request):
     bulbs = _accessible_bulbs_for_user(request.user)
     if not request.user.is_authenticated or not bulbs.exists():
@@ -57,26 +70,41 @@ def _selected_bulb_for_request(request):
     return bulbs.first()
 
 
+# ---------------------------------------------------------
+# Helper: Return schedules for one bulb
+# ---------------------------------------------------------
 def _schedule_queryset_for_bulb(bulb):
     if bulb is None:
         return LightSchedule.objects.none()
     return bulb.schedules.order_by("next_run_at", "id")
 
 
+# ---------------------------------------------------------
+# Page: Landing page
+# ---------------------------------------------------------
 @ensure_csrf_cookie
 def home_view(request):
     return render(request, "home.html")
 
 
+# ---------------------------------------------------------
+# Page: Main bulb dashboard
+# ---------------------------------------------------------
 @ensure_csrf_cookie
 def dashboard_page(request):
-    bulbs = _accessible_bulbs_for_user(request.user)
+    bulbs = list(_accessible_bulbs_for_user(request.user))
     bulb = _selected_bulb_for_request(request)
 
     can_view = bulb is not None and user_can_view_bulb(request.user, bulb)
     can_control = bulb is not None and user_can_control_bulb(request.user, bulb)
     can_manage = bulb is not None and user_can_manage_bulb(request.user, bulb)
 
+    # Attach a power summary for the selected bulb only.
+    selected_bulb_power_summary = None
+    if bulb is not None and can_view:
+        selected_bulb_power_summary = get_bulb_power_summary(bulb)
+
+    # Handle schedule creation from the dashboard form.
     if request.method == "POST":
         if not can_manage or bulb is None:
             return redirect("bulb_dashboard")
@@ -103,6 +131,7 @@ def dashboard_page(request):
         {
             "state": bulb,
             "selected_bulb": bulb,
+            "selected_bulb_power_summary": selected_bulb_power_summary,
             "bulbs": bulbs,
             "form": form,
             "schedules": schedules,
@@ -114,10 +143,19 @@ def dashboard_page(request):
     )
 
 
+# ---------------------------------------------------------
+# Page: Show bulbs linked to the current user
+# ---------------------------------------------------------
 @ensure_csrf_cookie
 def my_bulbs_page(request):
-    bulbs = _accessible_bulbs_for_user(request.user)
+    bulbs = list(_accessible_bulbs_for_user(request.user))
     bulb = _selected_bulb_for_request(request)
+
+    # Attach per-bulb summaries so the template can show them directly.
+    for bulb_item in bulbs:
+        bulb_item.power_summary = get_bulb_power_summary(bulb_item)
+
+    account_power_summary = get_account_power_summary(bulbs)
 
     return render(
         request,
@@ -125,6 +163,7 @@ def my_bulbs_page(request):
         {
             "selected_bulb": bulb,
             "bulbs": bulbs,
+            "account_power_summary": account_power_summary,
             "can_view": bulb is not None and user_can_view_bulb(request.user, bulb),
             "can_control": bulb is not None and user_can_control_bulb(request.user, bulb),
             "can_manage": bulb is not None and user_can_manage_bulb(request.user, bulb),
@@ -132,10 +171,16 @@ def my_bulbs_page(request):
     )
 
 
+# ---------------------------------------------------------
+# Page: Show claimable bulbs still in pairing mode
+# ---------------------------------------------------------
 @login_required
 def claim_bulb_page(request):
+    # Refresh online/offline flags before showing claimable devices.
+    refresh_bulb_online_statuses()
+
     now = timezone.now()
-    online_cutoff = now - timezone.timedelta(seconds=30)
+    online_cutoff = now - timezone.timedelta(seconds=DEVICE_OFFLINE_AFTER_SECONDS)
 
     claimable_bulbs = Bulb.objects.filter(
         owner__isnull=True,
@@ -143,6 +188,7 @@ def claim_bulb_page(request):
         pairing_expires_at__gt=now,
         last_seen_at__gte=online_cutoff,
         is_active=True,
+        is_online=True,
     ).order_by("-last_seen_at", "name")
 
     return render(
@@ -154,6 +200,9 @@ def claim_bulb_page(request):
     )
 
 
+# ---------------------------------------------------------
+# Action: Claim a bulb for the current user
+# ---------------------------------------------------------
 @login_required
 @require_POST
 def claim_bulb_action(request, bulb_id):
@@ -186,6 +235,10 @@ def claim_bulb_action(request, bulb_id):
     messages.success(request, f'"{bulb.name}" is now linked to your account.')
     return redirect(f"/dashboard/?bulb={bulb.id}")
 
+
+# ---------------------------------------------------------
+# Action: Remove bulb from current user account
+# ---------------------------------------------------------
 @login_required
 @require_POST
 def unclaim_bulb_action(request, bulb_id):
@@ -214,15 +267,18 @@ def unclaim_bulb_action(request, bulb_id):
     return redirect("my_bulbs")
 
 
-
+# ---------------------------------------------------------
+# Page: Manage schedules for a selected bulb
+# ---------------------------------------------------------
 @ensure_csrf_cookie
 def schedules_page(request):
-    bulbs = _accessible_bulbs_for_user(request.user)
+    bulbs = list(_accessible_bulbs_for_user(request.user))
     bulb = _selected_bulb_for_request(request)
 
     can_view = bulb is not None and user_can_view_bulb(request.user, bulb)
     can_manage = bulb is not None and user_can_manage_bulb(request.user, bulb)
 
+    # Handle schedule creation from schedules page.
     if request.method == "POST":
         if not can_manage or bulb is None:
             return redirect("bulb_schedules")
@@ -258,6 +314,9 @@ def schedules_page(request):
     )
 
 
+# ---------------------------------------------------------
+# API: Turn selected bulb on or off
+# ---------------------------------------------------------
 @require_POST
 def set_power_api(request):
     bulb = _selected_bulb_for_request(request)
@@ -285,6 +344,9 @@ def set_power_api(request):
     )
 
 
+# ---------------------------------------------------------
+# API: Set selected bulb brightness
+# ---------------------------------------------------------
 @require_POST
 def set_brightness_api(request):
     bulb = _selected_bulb_for_request(request)
@@ -312,6 +374,9 @@ def set_brightness_api(request):
     )
 
 
+# ---------------------------------------------------------
+# API: Return current state of selected bulb
+# ---------------------------------------------------------
 def light_state_api(request):
     bulb = _selected_bulb_for_request(request)
     if bulb is None:
@@ -337,6 +402,9 @@ def light_state_api(request):
     )
 
 
+# ---------------------------------------------------------
+# API: Return schedule information for selected bulb
+# ---------------------------------------------------------
 def schedule_status_api(request):
     bulb = _selected_bulb_for_request(request)
 
@@ -365,6 +433,23 @@ def schedule_status_api(request):
     return JsonResponse({"schedules": data})
 
 
+def bulb_status_api(request):
+    bulbs = _accessible_bulbs_for_user(request.user)
+
+    data = []
+    for bulb in bulbs:
+        data.append({
+            "id": bulb.id,
+            "name": bulb.name,
+            "is_online": bulb.is_online,
+            "last_seen_display": bulb.last_seen_at.strftime("%Y-%m-%d %I:%M %p") if bulb.last_seen_at else "Never",
+        })
+
+    return JsonResponse({"bulbs": data})
+
+# ---------------------------------------------------------
+# Action: Enable or disable a schedule
+# ---------------------------------------------------------
 @require_POST
 def toggle_schedule(request, schedule_id):
     schedule = get_object_or_404(LightSchedule, id=schedule_id)
@@ -389,6 +474,9 @@ def toggle_schedule(request, schedule_id):
     return redirect(f"/schedules/?bulb={bulb.id}")
 
 
+# ---------------------------------------------------------
+# Action: Delete a schedule
+# ---------------------------------------------------------
 @require_POST
 def delete_schedule(request, schedule_id):
     schedule = get_object_or_404(LightSchedule, id=schedule_id)
@@ -405,6 +493,9 @@ def delete_schedule(request, schedule_id):
     return redirect(f"/schedules/?bulb={bulb.id}")
 
 
+# ---------------------------------------------------------
+# API: Save browser timezone into session
+# ---------------------------------------------------------
 @require_POST
 def set_timezone_api(request):
     try:
@@ -423,6 +514,9 @@ def set_timezone_api(request):
     )
 
 
+# ---------------------------------------------------------
+# Page: Register a new user account
+# ---------------------------------------------------------
 def register_view(request):
     if request.method == "POST":
         register_form = RegisterForm(request.POST)

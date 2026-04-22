@@ -15,6 +15,7 @@ urlpatterns = [
     path("api/set-brightness/", views.set_brightness_api, name="set_brightness"),
     path("api/light-state/", views.light_state_api, name="light_state"),
     path("api/schedule-status/", views.schedule_status_api, name="schedule_status"),
+    path("api/bulb-status/", views.bulb_status_api, name="bulb_status"),
     path("api/set-timezone/", views.set_timezone_api, name="set_timezone"),
     path("schedules/toggle/<int:schedule_id>/", views.toggle_schedule, name="toggle_schedule"),
     path("schedules/delete/<int:schedule_id>/", views.delete_schedule, name="delete_schedule"),

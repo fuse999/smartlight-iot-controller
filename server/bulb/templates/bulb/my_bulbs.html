@@ -38,6 +38,40 @@
 
   {% elif bulbs %}
     <section class="card">
+      <h2>Account Energy Summary</h2>
+
+      <p>
+        <strong>Total Current Power:</strong>
+        {{ account_power_summary.current_power_display }}
+      </p>
+
+      <p>
+        <strong>Last Hour:</strong>
+        {{ account_power_summary.last_hour_display }}
+      </p>
+
+      <p>
+        <strong>Last Day:</strong>
+        {{ account_power_summary.last_day_display }}
+      </p>
+
+      <p>
+        <strong>Last Week:</strong>
+        {{ account_power_summary.last_week_display }}
+      </p>
+
+      <p>
+        <strong>Last Month:</strong>
+        {{ account_power_summary.last_month_display }}
+      </p>
+
+      <p class="muted" style="margin-top:12px;">
+        Bulbs on this account: {{ account_power_summary.bulb_count }} |
+        Bulbs with readings: {{ account_power_summary.bulbs_with_readings }}
+      </p>
+    </section>
+
+    <section class="card" id="bulb-card-{{ bulb.id }}">
       <h2>Your Devices</h2>
 
       <div class="grid">
@@ -65,21 +99,61 @@
 
             <p>
               <strong>Connection:</strong>
-              {% if bulb.is_online %}
-                <span class="enabled">Online</span>
-              {% else %}
-                <span class="disabled">Offline</span>
-              {% endif %}
+              <span
+                id="bulb-online-badge-{{ bulb.id }}"
+                class="{% if bulb.is_online %}enabled{% else %}disabled{% endif %}"
+              >
+                {% if bulb.is_online %}Online{% else %}Offline{% endif %}
+              </span>
             </p>
 
             <p>
               <strong>Last Seen:</strong>
-              {% if bulb.last_seen_at %}
-                {{ bulb.last_seen_at|date:"Y-m-d g:i A T" }}
-              {% else %}
-                Never
-              {% endif %}
+              <span id="bulb-last-seen-{{ bulb.id }}">
+                {% if bulb.last_seen_at %}
+                  {{ bulb.last_seen_at|date:"Y-m-d g:i A T" }}
+                {% else %}
+                  Never
+                {% endif %}
+              </span>
             </p>
+
+            <hr style="margin:16px 0;">
+
+            <p>
+              <strong>Current Power:</strong>
+              {{ bulb.power_summary.current_power_display }}
+            </p>
+
+            <p>
+              <strong>Last Day:</strong>
+              {{ bulb.power_summary.last_day_display }}
+            </p>
+
+            <p>
+              <strong>Last Week:</strong>
+              {{ bulb.power_summary.last_week_display }}
+            </p>
+
+            <p>
+              <strong>Last Month:</strong>
+              {{ bulb.power_summary.last_month_display }}
+            </p>
+
+            {% if bulb.power_summary.has_readings %}
+              <p class="muted" style="margin-top:12px;">
+                Latest reading:
+                {% if bulb.power_summary.latest_reading_at %}
+                  {{ bulb.power_summary.latest_reading_at|date:"Y-m-d g:i A T" }}
+                {% else %}
+                  —
+                {% endif %}
+              </p>
+            {% else %}
+              <p class="muted" style="margin-top:12px;">
+                No power readings yet.
+              </p>
+            {% endif %}
 
             {% if selected_bulb and bulb.id == selected_bulb.id %}
               <p class="muted">
@@ -130,4 +204,41 @@
       </div>
     </section>
   {% endif %}
+
+<script>
+  async function refreshMyBulbStatuses() {
+    try {
+      const res = await fetch(`/api/bulb-status/`, {
+        headers: {
+          "X-Requested-With": "XMLHttpRequest"
+        }
+      });
+
+      if (!res.ok) return;
+
+      const data = await res.json();
+      if (!data.bulbs) return;
+
+      for (const bulb of data.bulbs) {
+        const badge = document.getElementById(`bulb-online-badge-${bulb.id}`);
+        const lastSeen = document.getElementById(`bulb-last-seen-${bulb.id}`);
+
+        if (badge) {
+          badge.textContent = bulb.is_online ? "Online" : "Offline";
+          badge.className = bulb.is_online ? "enabled" : "disabled";
+        }
+
+        if (lastSeen && bulb.last_seen_display) {
+          lastSeen.textContent = bulb.last_seen_display;
+        }
+      }
+    } catch (err) {
+      console.error("My bulbs status refresh failed:", err);
+    }
+  }
+
+  refreshMyBulbStatuses();
+  setInterval(refreshMyBulbStatuses, 5000);
+</script>
+
 {% endblock %}

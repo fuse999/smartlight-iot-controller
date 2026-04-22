@@ -6,8 +6,8 @@
   <section class="hero">
     <h1>Welcome to the IoT Smart Light Dashboard</h1>
     <p>
-      This page combines manual light control, brightness control, and weekly scheduling
-      into one place.
+      This page combines manual light control, brightness control, weekly scheduling,
+      and power monitoring into one place.
     </p>
   </section>
 
@@ -19,14 +19,20 @@
         <select name="bulb" onchange="this.form.submit()" class="form-control">
           {% for b in bulbs %}
             <option value="{{ b.id }}" {% if selected_bulb and b.id == selected_bulb.id %}selected{% endif %}>
-              {{ b.name }}
+              {{ b.name }} ({% if b.is_online %}Online{% else %}Offline{% endif %})
             </option>
           {% endfor %}
         </select>
 
         {% if selected_bulb %}
           <span class="muted">
-            Selected: <strong>{{ selected_bulb.name }}</strong>
+          Selected:
+          <strong id="selectedBulbName">{{ selected_bulb.name }}</strong>
+          <span
+            id="selectedBulbOnlineBadge"
+            class="{% if selected_bulb.is_online %}enabled{% else %}disabled{% endif %}"
+          >
+            {% if selected_bulb.is_online %}Online{% else %}Offline{% endif %}
           </span>
         {% endif %}
       </form>
@@ -69,6 +75,50 @@
         </div>
 
         <p id="status" class="status-text"></p>
+      </section>
+
+      <section class="card">
+        <h2>Power Summary</h2>
+
+        {% if selected_bulb_power_summary and selected_bulb_power_summary.has_readings %}
+          <p>
+            <strong>Current Power:</strong>
+            {{ selected_bulb_power_summary.current_power_display }}
+          </p>
+
+          <p>
+            <strong>Last Hour:</strong>
+            {{ selected_bulb_power_summary.last_hour_display }}
+          </p>
+
+          <p>
+            <strong>Last Day:</strong>
+            {{ selected_bulb_power_summary.last_day_display }}
+          </p>
+
+          <p>
+            <strong>Last Week:</strong>
+            {{ selected_bulb_power_summary.last_week_display }}
+          </p>
+
+          <p>
+            <strong>Last Month:</strong>
+            {{ selected_bulb_power_summary.last_month_display }}
+          </p>
+
+          <p class="muted" style="margin-top:12px;">
+            Latest reading:
+            {% if selected_bulb_power_summary.latest_reading_at %}
+              {{ selected_bulb_power_summary.latest_reading_at|date:"Y-m-d g:i A T" }}
+            {% else %}
+              —
+            {% endif %}
+          </p>
+        {% else %}
+          <p class="muted">
+            No power readings have been recorded for this bulb yet.
+          </p>
+        {% endif %}
       </section>
 
       <section class="card">
@@ -481,8 +531,36 @@
     openModal();
   {% endif %}
 
+  async function refreshBulbStatuses() {
+    try {
+      const res = await fetch(`/api/bulb-status/`);
+      if (!res.ok) return;
+
+      const data = await res.json();
+      const select = document.querySelector('select[name="bulb"]');
+      const badge = document.getElementById("selectedBulbOnlineBadge");
+
+      if (!select || !data.bulbs) return;
+
+      for (const bulb of data.bulbs) {
+        const option = select.querySelector(`option[value="${bulb.id}"]`);
+        if (option) {
+          option.textContent = `${bulb.name} (${bulb.is_online ? "Online" : "Offline"})`;
+        }
+
+        if (String(bulb.id) === String(selectedBulbId) && badge) {
+          badge.textContent = bulb.is_online ? "Online" : "Offline";
+          badge.className = bulb.is_online ? "enabled" : "disabled";
+        }
+      }
+    } catch (err) {
+      console.error("Bulb status refresh failed:", err);
+    }
+  }
+
   setInterval(pollForStateChange, 5000);
   setInterval(refreshScheduleTable, 5000);
+  setInterval(refreshBulbStatuses, 5000);
 </script>
 {% endif %}
 

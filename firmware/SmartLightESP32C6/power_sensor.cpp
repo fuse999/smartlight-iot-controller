@@ -10,9 +10,6 @@
 // ESP32 ADC approximation
 static const float adcRef = 3.3f;
 static const int adcMax = 4095;
-
-// Temporary no-divider test
-// Change to 1.5f later if you add a voltage divider
 static const float dividerCorrection = 1.0f;
 
 // ACS712 5A sensitivity
@@ -29,7 +26,7 @@ static const float currentDeadbandAmps = 0.01f;
 
 // Empirical scale factor to tune readings closer to your known 5.5 W bulb
 // Start here and adjust later if needed.
-static const float currentScaleFactor = 1.0f;
+static const float currentScaleFactor = 2.65f;
 
 // Number of repeated RMS measurements to average per call
 static const uint8_t internalAveragePasses = 5;
