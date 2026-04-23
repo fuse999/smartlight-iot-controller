@@ -17,6 +17,8 @@
       --primary-dark: #1d4ed8;
       --success: #15803d;
       --danger: #b91c1c;
+      --warning: #b45309;
+      --info: #1d4ed8;
       --shadow: 0 8px 24px rgba(0,0,0,0.08);
       --radius: 14px;
     }
@@ -32,6 +34,8 @@
       --primary-dark: #3b82f6;
       --success: #4ade80;
       --danger: #f87171;
+      --warning: #fbbf24;
+      --info: #93c5fd;
       --shadow: 0 8px 24px rgba(0,0,0,0.35);
     }
 
@@ -44,9 +48,7 @@
       color: var(--text);
     }
 
-    a {
-      color: var(--primary);
-    }
+    a { color: var(--primary); }
 
     .topbar {
       position: sticky;
@@ -84,7 +86,8 @@
 
     .nav-links a,
     .nav-links button,
-    .inline-link-btn {
+    .inline-link-btn,
+    .mini-nav a {
       background: none;
       border: none;
       color: var(--text);
@@ -97,8 +100,15 @@
 
     .nav-links a:hover,
     .nav-links button:hover,
-    .inline-link-btn:hover {
+    .inline-link-btn:hover,
+    .mini-nav a:hover {
       background: rgba(37, 99, 235, 0.08);
+    }
+
+    .nav-link-active {
+      background: rgba(37, 99, 235, 0.14) !important;
+      color: var(--primary) !important;
+      font-weight: 700;
     }
 
     .page {
@@ -126,6 +136,58 @@
       color: var(--muted);
     }
 
+    .selected-context {
+      background: linear-gradient(135deg, rgba(37, 99, 235, 0.08), transparent);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px 18px;
+      margin-bottom: 20px;
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: center;
+      flex-wrap: wrap;
+      box-shadow: var(--shadow);
+    }
+
+    .selected-context h2,
+    .selected-context p {
+      margin: 0;
+    }
+
+    .context-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 6px;
+    }
+
+    .mini-nav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: rgba(37, 99, 235, 0.10);
+      color: var(--primary);
+      font-size: 0.88rem;
+      font-weight: 700;
+      border: 1px solid rgba(37, 99, 235, 0.12);
+    }
+
+    .chip-muted {
+      background: rgba(107, 114, 128, 0.12);
+      color: var(--muted);
+      border-color: rgba(107, 114, 128, 0.15);
+    }
+
     .grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -133,9 +195,8 @@
     }
 
     @media (max-width: 900px) {
-      .grid {
-        grid-template-columns: 1fr;
-      }
+      .grid { grid-template-columns: 1fr; }
+      .selected-context { align-items: flex-start; }
     }
 
     .card {
@@ -183,39 +244,20 @@
       padding: 10px 16px;
       cursor: pointer;
       font-weight: 600;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
     }
 
-    .btn-primary {
-      background: var(--primary);
-      color: white;
-    }
+    .btn-primary { background: var(--primary); color: white; }
+    .btn-primary:hover { background: var(--primary-dark); }
+    .btn-danger { background: #dc2626; color: white; }
+    .btn-danger:hover { background: #b91c1c; }
+    .btn-secondary { background: #e5e7eb; color: #111827; }
 
-    .btn-primary:hover {
-      background: var(--primary-dark);
-    }
-
-    .btn-danger {
-      background: #dc2626;
-      color: white;
-    }
-
-    .btn-danger:hover {
-      background: #b91c1c;
-    }
-
-    .btn-secondary {
-      background: #e5e7eb;
-      color: #111827;
-    }
-
-    body.dark-mode .btn-secondary {
-      background: #374151;
-      color: #e5e7eb;
-    }
-
-    body.dark-mode .btn-secondary:hover {
-      background: #4b5563;
-    }
+    body.dark-mode .btn-secondary { background: #374151; color: #e5e7eb; }
+    body.dark-mode .btn-secondary:hover { background: #4b5563; }
 
     label {
       font-weight: 600;
@@ -241,23 +283,9 @@
       font-size: 0.95rem;
     }
 
-    .muted {
-      color: var(--muted);
-      font-size: 0.92rem;
-    }
-
-    .helptext {
-      display: block;
-      margin-top: 6px;
-      color: var(--muted);
-      font-size: 0.9rem;
-    }
-
-    .status-text {
-      margin-top: 10px;
-      min-height: 20px;
-      color: var(--muted);
-    }
+    .muted { color: var(--muted); font-size: 0.92rem; }
+    .helptext { display: block; margin-top: 6px; color: var(--muted); font-size: 0.9rem; }
+    .status-text { margin-top: 10px; min-height: 20px; color: var(--muted); }
 
     table {
       width: 100%;
@@ -274,35 +302,39 @@
       vertical-align: top;
     }
 
-    th {
-      background: var(--panel-alt);
-    }
-
+    th { background: var(--panel-alt); }
     .enabled { color: var(--success); font-weight: bold; }
     .disabled { color: var(--danger); font-weight: bold; }
-
-    .form-group {
-      margin-bottom: 14px;
-    }
-
-    .form-actions {
-      display: flex;
-      gap: 10px;
-      margin-top: 16px;
-      flex-wrap: wrap;
-    }
+    .form-group { margin-bottom: 14px; }
+    .form-actions { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
 
     .alert {
-      padding: 10px 12px;
+      padding: 12px 14px;
       border-radius: 10px;
       margin-bottom: 12px;
       font-size: 0.92rem;
+      border: 1px solid transparent;
     }
 
-    .alert-error {
-      background: rgba(239, 68, 68, 0.18);
-      color: var(--danger);
+    .alert-error { background: rgba(239, 68, 68, 0.18); color: var(--danger); border-color: rgba(239, 68, 68, 0.22); }
+    .alert-success { background: rgba(34, 197, 94, 0.18); color: var(--success); border-color: rgba(34, 197, 94, 0.22); }
+    .alert-info { background: rgba(37, 99, 235, 0.12); color: var(--info); border-color: rgba(37, 99, 235, 0.20); }
+    .alert-warning { background: rgba(245, 158, 11, 0.16); color: var(--warning); border-color: rgba(245, 158, 11, 0.24); }
+
+    .status-panel {
+      display: none;
+      margin-top: 16px;
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 1px solid transparent;
+      font-size: 0.94rem;
+      line-height: 1.45;
     }
+
+    .status-panel.is-visible { display: block; }
+    .status-panel.is-success { background: rgba(34, 197, 94, 0.18); color: var(--success); border-color: rgba(34, 197, 94, 0.24); }
+    .status-panel.is-error { background: rgba(239, 68, 68, 0.18); color: var(--danger); border-color: rgba(239, 68, 68, 0.24); }
+    .status-panel.is-info { background: rgba(37, 99, 235, 0.12); color: var(--info); border-color: rgba(37, 99, 235, 0.20); }
 
     .modal-overlay {
       position: fixed;
@@ -352,9 +384,7 @@
     }
 
     @media (max-width: 640px) {
-      .weekday-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
+      .weekday-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
   </style>
 
@@ -366,10 +396,12 @@
       <a class="brand" href="{% url 'home' %}">Smart Light Dashboard</a>
 
       <nav class="nav-links">
-        <a href="{% url 'home' %}">Home</a>
-        <a href="{% url 'bulb_dashboard' %}">Dashboard</a>
-        <a href="{% url 'my_bulbs' %}">My Bulbs</a>
-        <a href="{% url 'bulb_schedules' %}">Schedules</a>
+        <a class="{% if request.resolver_match.url_name == 'home' %}nav-link-active{% endif %}" href="{% url 'home' %}">Home</a>
+        <a class="{% if request.resolver_match.url_name == 'bulb_dashboard' %}nav-link-active{% endif %}" href="{% url 'bulb_dashboard' %}{% if selected_bulb %}?bulb={{ selected_bulb.id }}{% endif %}">Dashboard</a>
+        <a class="{% if request.resolver_match.url_name == 'my_bulbs' %}nav-link-active{% endif %}" href="{% url 'my_bulbs' %}{% if selected_bulb %}?bulb={{ selected_bulb.id }}{% endif %}">My Bulbs</a>
+        <a class="{% if request.resolver_match.url_name == 'bulb_schedules' %}nav-link-active{% endif %}" href="{% url 'bulb_schedules' %}{% if selected_bulb %}?bulb={{ selected_bulb.id }}{% endif %}">Schedules</a>
+        <a class="{% if request.resolver_match.url_name == 'power_report' %}nav-link-active{% endif %}" href="{% url 'power_report' %}{% if selected_bulb %}?bulb={{ selected_bulb.id }}{% endif %}">Power Reports</a>
+        <a class="{% if request.resolver_match.url_name == 'activity_report' %}nav-link-active{% endif %}" href="{% url 'activity_report' %}{% if selected_bulb %}?bulb={{ selected_bulb.id }}{% endif %}">Activity Reports</a>
 
         <button type="button" id="themeToggle">Dark Mode</button>
 
@@ -388,6 +420,37 @@
   </header>
 
   <main class="page">
+    {% if selected_bulb %}
+      <section class="selected-context">
+        <div>
+          <div class="context-title">
+            <h2>Selected bulb: {{ selected_bulb.name }}</h2>
+            <span class="chip {% if not selected_bulb.is_online %}chip-muted{% endif %}">
+              {% if selected_bulb.is_online %}Online{% else %}Offline{% endif %}
+            </span>
+            {% if selected_bulb_role %}
+              <span class="chip">Role: {{ selected_bulb_role|title }}</span>
+            {% endif %}
+          </div>
+          <p class="muted">This bulb stays selected across the dashboard, schedules, access management, and report pages.</p>
+        </div>
+        <div class="mini-nav">
+          <a class="{% if request.resolver_match.url_name == 'bulb_dashboard' %}nav-link-active{% endif %}" href="{% url 'bulb_dashboard' %}?bulb={{ selected_bulb.id }}">Dashboard</a>
+          <a class="{% if request.resolver_match.url_name == 'bulb_schedules' %}nav-link-active{% endif %}" href="{% url 'bulb_schedules' %}?bulb={{ selected_bulb.id }}">Schedules</a>
+          <a class="{% if request.resolver_match.url_name == 'power_report' %}nav-link-active{% endif %}" href="{% url 'power_report' %}?bulb={{ selected_bulb.id }}">Power Reports</a>
+          <a class="{% if request.resolver_match.url_name == 'activity_report' %}nav-link-active{% endif %}" href="{% url 'activity_report' %}?bulb={{ selected_bulb.id }}">Activity Reports</a>
+          {% if selected_bulb_role == 'owner' or selected_bulb_role == 'admin' %}
+            <a class="{% if request.resolver_match.url_name == 'manage_bulb_access' %}nav-link-active{% endif %}" href="{% url 'manage_bulb_access' selected_bulb.id %}">Manage Access</a>
+          {% endif %}
+        </div>
+      </section>
+    {% endif %}
+
+    {% if messages %}
+      {% for message in messages %}
+        <div class="alert {% if message.tags == 'error' %}alert-error{% elif message.tags == 'warning' %}alert-warning{% elif message.tags == 'info' %}alert-info{% else %}alert-success{% endif %}">{{ message }}</div>
+      {% endfor %}
+    {% endif %}
     {% block content %}{% endblock %}
   </main>
 
@@ -401,9 +464,7 @@
       const toggle = document.getElementById("themeToggle");
       if (toggle) {
         function updateButtonText() {
-          toggle.textContent = document.body.classList.contains("dark-mode")
-            ? "Light Mode"
-            : "Dark Mode";
+          toggle.textContent = document.body.classList.contains("dark-mode") ? "Light Mode" : "Dark Mode";
         }
 
         updateButtonText();

@@ -140,6 +140,8 @@ load_dotenv("ops/env/.env")
 
 DEVICE_API_TOKEN = os.environ.get("DEVICE_API_TOKEN", "")
 
+PROJECT_REPOSITORY_URL = os.environ.get("PROJECT_REPOSITORY_URL", "https://github.com/fuse999/smartlight-iot-controller")
+
 CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", "redis://redis:6379/0")
 CELERY_RESULT_BACKEND = os.environ.get("CELERY_RESULT_BACKEND", "redis://redis:6379/1")
 CELERY_ACCEPT_CONTENT = ["json"]

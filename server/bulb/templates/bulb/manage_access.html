@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Access{% endblock %}
+
+{% block content %}
+<section class="hero">
+  <h1>Manage Access</h1>
+  <p>Manage who can view and control <strong>{{ selected_bulb.name }}</strong>.</p>
+  <div class="btn-row" style="margin-top:16px; margin-bottom:0;">
+    <a class="btn btn-secondary" href="{% url 'bulb_dashboard' %}?bulb={{ selected_bulb.id }}">Back to Dashboard</a>
+    <a class="btn btn-secondary" href="{% url 'bulb_schedules' %}?bulb={{ selected_bulb.id }}">View Schedules</a>
+    <a class="btn btn-secondary" href="{% url 'activity_report' %}?bulb={{ selected_bulb.id }}">View Activity Reports</a>
+  </div>
+</section>
+
+<section class="card" style="margin-bottom:20px;">
+  <h2>Bulb Summary</h2>
+  <p><strong>Name:</strong> {{ selected_bulb.name }}</p>
+  <p><strong>Owner:</strong> {% if selected_bulb.owner %}{{ selected_bulb.owner.username }}{% if selected_bulb.owner.email %} <span class="muted">({{ selected_bulb.owner.email }})</span>{% endif %}{% else %}Unclaimed{% endif %}</p>
+  <p><strong>Your role:</strong> {{ owner_role|title }}</p>
+  <p class="muted">Use this page to add users by username or email, change their role, or revoke access entirely.</p>
+</section>
+
+<div class="grid">
+  <section class="card">
+    <h2>Add or Update Access</h2>
+    <p class="muted">If the user already has access, submitting this form updates their role.</p>
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="form_type" value="share_access">
+
+      <div class="form-group">
+        <label for="{{ access_form.identifier.id_for_label }}">{{ access_form.identifier.label }}</label>
+        {{ access_form.identifier }}
+      </div>
+      <div class="form-group">
+        <label for="{{ access_form.role.id_for_label }}">Role</label>
+        {{ access_form.role }}
+      </div>
+      {% if access_form.errors %}
+        <div class="alert alert-error">{{ access_form.errors }}</div>
+      {% endif %}
+      <div class="form-actions">
+        <button class="btn btn-primary" type="submit">Save Access</button>
+      </div>
+    </form>
+  </section>
+
+  <section class="card">
+    <h2>Role Rules</h2>
+    <ul>
+      <li><strong>Owner</strong> can do everything.</li>
+      <li><strong>Admin</strong> can manage schedules and sharing, but cannot assign or revoke other admins.</li>
+      <li><strong>Controller</strong> can manually control the bulb and create personal schedules.</li>
+      <li><strong>Viewer</strong> is read only.</li>
+    </ul>
+  </section>
+</div>
+
+<section class="card" style="margin-top:20px;">
+  <h2>Current Access</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>User</th>
+        <th>Role</th>
+        <th>Granted</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for entry in access_entries %}
+        <tr>
+          <td>
+            {{ entry.user.username }}
+            {% if entry.user.email %}<br><span class="muted">{{ entry.user.email }}</span>{% endif %}
+          </td>
+          <td>{{ entry.get_role_display }}</td>
+          <td>{{ entry.created_at|date:"Y-m-d g:i A" }}</td>
+          <td>
+            {% if entry.user_id == selected_bulb.owner_id %}
+              <span class="muted">Owner</span>
+            {% elif owner_role == "admin" and entry.role == "admin" %}
+              <span class="muted">Protected admin</span>
+            {% else %}
+              <div class="btn-row" style="margin:0;">
+                <form method="post" style="display:inline-flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                  {% csrf_token %}
+                  <input type="hidden" name="form_type" value="share_access">
+                  <input type="hidden" name="identifier" value="{{ entry.user.email|default:entry.user.username }}">
+                  <select name="role">
+                    {% for role in allowed_roles %}
+                      <option value="{{ role }}" {% if entry.role == role %}selected{% endif %}>{{ role|title }}</option>
+                    {% endfor %}
+                  </select>
+                  <button class="btn btn-secondary" type="submit">Update Role</button>
+                </form>
+
+                <form method="post" style="display:inline;">
+                  {% csrf_token %}
+                  <input type="hidden" name="form_type" value="revoke_access">
+                  <input type="hidden" name="identifier" value="{{ entry.user.email|default:entry.user.username }}">
+                  <button class="btn btn-danger" type="submit" onclick="return confirm('Revoke access for {{ entry.user.username }}?');">Revoke</button>
+                </form>
+              </div>
+            {% endif %}
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="4" class="muted">No shared users yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

@@ -6,7 +6,8 @@ from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 
-from .models import Bulb, ControlActivity, PowerReading
+from .models import Bulb, ControlActivity
+from .services import request_control_action
 
 
 def _extract_bearer_token(request):
@@ -83,12 +84,13 @@ def register_device(request):
             bulb.save(update_fields=list(dict.fromkeys(fields_to_update)))
 
     if created:
-        ControlActivity.objects.create(
+        request_control_action(
             bulb=bulb,
-            user=None,
             action=ControlActivity.ACTION_DEVICE_REPORTED,
-            value=device_id or "registered",
-            notes="Device auto-registered with server.",
+            requested_is_on=bulb.is_on,
+            requested_brightness=bulb.brightness,
+            source_type=ControlActivity.SOURCE_DEVICE_SYNC,
+            notes=f"Device auto-registered with server. device_id={device_id or 'registered'}",
         )
 
     return JsonResponse(
@@ -139,55 +141,35 @@ def report_state(request):
     except Exception:
         return HttpResponseBadRequest("Invalid JSON payload.")
 
-    changed_fields = []
+    try:
+        brightness = payload.get("brightness")
+        if brightness is not None:
+            brightness = int(brightness)
 
-    if "is_on" in payload:
-        bulb.is_on = bool(payload["is_on"])
-        changed_fields.append("is_on")
+        decision = request_control_action(
+            bulb=bulb,
+            action=ControlActivity.ACTION_DEVICE_REPORTED,
+            requested_is_on=payload.get("is_on"),
+            requested_brightness=brightness,
+            source_type=ControlActivity.SOURCE_DEVICE_SYNC,
+            notes="Device reported state to server.",
+            current_rms=payload.get("current_rms"),
+            estimated_voltage=payload.get("estimated_voltage"),
+            estimated_power_w=payload.get("estimated_power_w"),
+            cumulative_energy_wh=payload.get("cumulative_energy_wh"),
+        )
+    except (TypeError, ValueError):
+        return HttpResponseBadRequest("Brightness and power-reading values must be numeric.")
 
-    if "brightness" in payload:
-        try:
-            bulb.brightness = max(0, min(100, int(payload["brightness"])))
-            changed_fields.append("brightness")
-        except (TypeError, ValueError):
-            return HttpResponseBadRequest("Brightness must be an integer from 0 to 100.")
-
-    bulb.is_online = True
-    bulb.last_seen_at = timezone.now()
-    bulb.updated_at = timezone.now()
-    changed_fields.extend(["is_online", "last_seen_at", "updated_at"])
-
-    if changed_fields:
-        bulb.save(update_fields=list(dict.fromkeys(changed_fields)))
-
-    ControlActivity.objects.create(
-        bulb=bulb,
-        user=None,
-        action=ControlActivity.ACTION_DEVICE_REPORTED,
-        value=json.dumps(
-            {
-                "is_on": bulb.is_on,
-                "brightness": bulb.brightness,
-            }
-        ),
-        notes="Device reported state to server.",
+    return JsonResponse(
+        {
+            "ok": True,
+            "outcome": decision.activity.outcome,
+            "reason": decision.reason,
+            "reason_code": decision.activity.reason_code,
+            "activity_id": decision.activity.id,
+            "is_on": decision.bulb.is_on,
+            "brightness": decision.bulb.brightness,
+            "updated_at": decision.bulb.updated_at.isoformat() if decision.bulb.updated_at else None,
+        }
     )
-
-    current_rms = payload.get("current_rms")
-    estimated_voltage = payload.get("estimated_voltage")
-    estimated_power_w = payload.get("estimated_power_w")
-    cumulative_energy_wh = payload.get("cumulative_energy_wh")
-
-    if current_rms is not None or estimated_power_w is not None:
-        try:
-            PowerReading.objects.create(
-                bulb=bulb,
-                current_rms=float(current_rms or 0.0),
-                estimated_voltage=float(estimated_voltage or 120.0),
-                estimated_power_w=float(estimated_power_w or 0.0),
-                cumulative_energy_wh=float(cumulative_energy_wh or 0.0),
-            )
-        except (TypeError, ValueError):
-            return HttpResponseBadRequest("Power-reading values must be numeric.")
-
-    return JsonResponse({"ok": True})

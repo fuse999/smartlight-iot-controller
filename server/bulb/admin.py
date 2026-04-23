@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Bulb, BulbAccess, ControlActivity, PowerReading, LightSchedule
+from .models import ActiveBulbOverride, Bulb, BulbAccess, ConflictEvent, ControlActivity, PowerReading, LightSchedule
 
 
 @admin.register(Bulb)
@@ -33,9 +33,19 @@ class BulbAccessAdmin(admin.ModelAdmin):
 
 @admin.register(ControlActivity)
 class ControlActivityAdmin(admin.ModelAdmin):
-    list_display = ("id", "bulb", "user", "action", "value", "created_at")
-    list_filter = ("action", "created_at", "bulb")
-    search_fields = ("action", "value", "bulb__name", "user__username")
+    list_display = (
+        "id",
+        "bulb",
+        "user",
+        "action",
+        "source_type",
+        "outcome",
+        "actor_role",
+        "overrode_existing",
+        "created_at",
+    )
+    list_filter = ("action", "source_type", "outcome", "created_at", "bulb")
+    search_fields = ("action", "value", "reason", "bulb__name", "user__username")
     ordering = ("-created_at",)
 
 
@@ -63,6 +73,7 @@ class LightScheduleAdmin(admin.ModelAdmin):
         "name",
         "enabled",
         "repeat",
+        "created_by_role",
         "days_display",
         "time_of_day",
         "scheduled_for",
@@ -70,6 +81,39 @@ class LightScheduleAdmin(admin.ModelAdmin):
         "next_run_at",
         "last_run_at",
     )
-    list_filter = ("enabled", "repeat", "timezone_name", "bulb")
+    list_filter = ("enabled", "repeat", "timezone_name", "bulb", "created_by_role")
     search_fields = ("name", "bulb__name", "timezone_name")
     ordering = ("next_run_at", "id")
+
+
+@admin.register(ActiveBulbOverride)
+class ActiveBulbOverrideAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "bulb",
+        "created_by",
+        "actor_role",
+        "actor_priority",
+        "active_until",
+        "is_active",
+        "updated_at",
+    )
+    list_filter = ("source_type", "actor_role", "is_active", "active_until")
+    search_fields = ("bulb__name", "created_by__username")
+    ordering = ("-active_until",)
+
+
+@admin.register(ConflictEvent)
+class ConflictEventAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "bulb",
+        "conflict_type",
+        "reason_code",
+        "winning_activity",
+        "losing_activity",
+        "created_at",
+    )
+    list_filter = ("conflict_type", "reason_code", "created_at", "bulb")
+    search_fields = ("bulb__name", "winner_summary", "loser_summary", "details")
+    ordering = ("-created_at",)

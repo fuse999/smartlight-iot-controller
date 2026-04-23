@@ -4,17 +4,25 @@
 
 {% block content %}
   <section class="hero">
-    <h1>Welcome to the IoT Smart Light Dashboard</h1>
+    <h1>Smart Light Dashboard</h1>
     <p>
-      This page combines manual light control, brightness control, weekly scheduling,
-      and power monitoring into one place.
+      Manual control, scheduling, sharing, power reports, and activity reports all in one place.
     </p>
+    {% if selected_bulb %}
+      <div class="btn-row" style="margin-top:16px; margin-bottom:0;">
+        <a class="btn btn-secondary" href="{% url 'bulb_schedules' %}?bulb={{ selected_bulb.id }}">Open Schedules</a>
+        <a class="btn btn-secondary" href="{% url 'power_report' %}?bulb={{ selected_bulb.id }}">Open Power Reports</a>
+        <a class="btn btn-secondary" href="{% url 'activity_report' %}?bulb={{ selected_bulb.id }}">Open Activity Reports</a>
+        {% if can_manage_sharing %}
+          <a class="btn btn-secondary" href="{% url 'manage_bulb_access' selected_bulb.id %}">Manage Access</a>
+        {% endif %}
+      </div>
+    {% endif %}
   </section>
 
   {% if request.user.is_authenticated and bulbs %}
     <section class="card" style="margin-bottom:20px;">
       <h2>Select Bulb</h2>
-
       <form method="get" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
         <select name="bulb" onchange="this.form.submit()" class="form-control">
           {% for b in bulbs %}
@@ -26,87 +34,71 @@
 
         {% if selected_bulb %}
           <span class="muted">
-          Selected:
-          <strong id="selectedBulbName">{{ selected_bulb.name }}</strong>
-          <span
-            id="selectedBulbOnlineBadge"
-            class="{% if selected_bulb.is_online %}enabled{% else %}disabled{% endif %}"
-          >
-            {% if selected_bulb.is_online %}Online{% else %}Offline{% endif %}
+            Selected:
+            <strong id="selectedBulbName">{{ selected_bulb.name }}</strong>
+            <span id="selectedBulbOnlineBadge" class="{% if selected_bulb.is_online %}enabled{% else %}disabled{% endif %}">
+              {% if selected_bulb.is_online %}Online{% else %}Offline{% endif %}
+            </span>
           </span>
         {% endif %}
       </form>
     </section>
   {% endif %}
 
-  {% if request.user.is_authenticated and can_control and selected_bulb %}
+  {% if not request.user.is_authenticated %}
+    <section class="card">
+      <h2>Account Access</h2>
+      <p>Please log in or create an account to access the smart light dashboard.</p>
+      <div class="btn-row">
+        <a class="btn btn-primary" href="{% url 'login' %}">Log In</a>
+        <a class="btn btn-secondary" href="{% url 'register' %}">Create Account</a>
+      </div>
+    </section>
+  {% elif not bulbs %}
+    <section class="card">
+      <h2>No Bulbs Yet</h2>
+      <p>Your account does not currently have any bulbs assigned to it.</p>
+      <div class="btn-row">
+        <a class="btn btn-primary" href="{% url 'claim_bulb' %}">Claim a Bulb</a>
+      </div>
+    </section>
+  {% elif can_view and selected_bulb %}
     <div class="grid">
       <section class="card">
-        <h2>Manual Light Control</h2>
-
+        <h2>Current Bulb State</h2>
         <p>
-          Current State:
-          <span
-            id="stateText"
-            class="state-badge {% if state.is_on %}state-on{% else %}state-off{% endif %}">
+          State:
+          <span id="stateText" class="state-badge {% if state.is_on %}state-on{% else %}state-off{% endif %}">
             {{ state.is_on|yesno:"ON,OFF" }}
           </span>
         </p>
-
-        <p class="muted" style="margin-top:-6px;">
-          Controlling bulb: <strong>{{ selected_bulb.name }}</strong>
-        </p>
-
-        <div class="btn-row">
-          <button class="btn btn-primary" id="onBtn" type="button">Turn ON</button>
-          <button class="btn btn-danger" id="offBtn" type="button">Turn OFF</button>
-        </div>
-
-        <div style="margin-top:16px;">
-          <label for="brightness">
-            Brightness: <span id="bVal">{{ state.brightness|default:100 }}</span>%
-          </label>
-          <input
-            id="brightness"
-            type="range"
-            min="0"
-            max="100"
-            value="{{ state.brightness|default:100 }}" />
-        </div>
-
-        <p id="status" class="status-text"></p>
+        <p class="muted">Bulb: <strong>{{ selected_bulb.name }}</strong></p>
+        <p class="muted">Brightness: <span id="bVal">{{ state.brightness|default:100 }}</span>%</p>
+        <div id="commandFeedback" class="status-panel" aria-live="polite"></div>
+        {% if can_control %}
+          <div class="btn-row">
+            <button class="btn btn-primary" id="onBtn" type="button">Turn ON</button>
+            <button class="btn btn-danger" id="offBtn" type="button">Turn OFF</button>
+          </div>
+          <div style="margin-top:16px;">
+            <label for="brightness">Brightness</label>
+            <input id="brightness" type="range" min="0" max="100" value="{{ state.brightness|default:100 }}" />
+          </div>
+          <p id="status" class="status-text">Use the controls below to send a command. Any conflict or override result will show here.</p>
+        {% else %}
+          <p class="muted">You can view this bulb, but you do not have permission to manually control it.</p>
+        {% endif %}
       </section>
 
       <section class="card">
         <h2>Power Summary</h2>
-
         {% if selected_bulb_power_summary and selected_bulb_power_summary.has_readings %}
-          <p>
-            <strong>Current Power:</strong>
-            {{ selected_bulb_power_summary.current_power_display }}
-          </p>
-
-          <p>
-            <strong>Last Hour:</strong>
-            {{ selected_bulb_power_summary.last_hour_display }}
-          </p>
-
-          <p>
-            <strong>Last Day:</strong>
-            {{ selected_bulb_power_summary.last_day_display }}
-          </p>
-
-          <p>
-            <strong>Last Week:</strong>
-            {{ selected_bulb_power_summary.last_week_display }}
-          </p>
-
-          <p>
-            <strong>Last Month:</strong>
-            {{ selected_bulb_power_summary.last_month_display }}
-          </p>
-
-          <p class="muted" style="margin-top:12px;">
+          <p><strong>Current Power:</strong> {{ selected_bulb_power_summary.current_power_display }}</p>
+          <p><strong>Last Hour:</strong> {{ selected_bulb_power_summary.last_hour_display }}</p>
+          <p><strong>Last Day:</strong> {{ selected_bulb_power_summary.last_day_display }}</p>
+          <p><strong>Last Week:</strong> {{ selected_bulb_power_summary.last_week_display }}</p>
+          <p><strong>Last Month:</strong> {{ selected_bulb_power_summary.last_month_display }}</p>
+          <p class="muted">
             Latest reading:
             {% if selected_bulb_power_summary.latest_reading_at %}
               {{ selected_bulb_power_summary.latest_reading_at|date:"Y-m-d g:i A T" }}
@@ -115,125 +107,255 @@
             {% endif %}
           </p>
         {% else %}
-          <p class="muted">
-            No power readings have been recorded for this bulb yet.
-          </p>
+          <p class="muted">No power readings have been recorded for this bulb yet.</p>
         {% endif %}
       </section>
 
       <section class="card">
         <h2>Schedule Controls</h2>
-        <p class="muted">
-          Create a recurring weekly schedule for <strong>{{ selected_bulb.name }}</strong>.
-        </p>
-
-        <div class="form-actions">
-          <button class="btn btn-primary" type="button" id="openScheduleModal">
-            Create Weekly Schedule
-          </button>
-        </div>
+        {% if can_create_schedule %}
+          <p class="muted">Create either a one-time schedule or a recurring weekly schedule.</p>
+          <div class="form-actions">
+            <button class="btn btn-primary" type="button" id="openScheduleModal">Create Schedule</button>
+          </div>
+        {% else %}
+          <p class="muted">You can view schedules for this bulb, but you cannot create new ones.</p>
+        {% endif %}
       </section>
+
+      {% if can_manage_sharing %}
+      <section class="card">
+        <h2>Sharing and Access</h2>
+        <p class="muted">Owner can assign admin, controller, or viewer. Admin can assign controller or viewer.</p>
+        <p class="muted">Use the dedicated page to add users by username or email, edit roles, and revoke access cleanly.</p>
+        <div class="form-actions">
+          <a class="btn btn-primary" href="{% url 'manage_bulb_access' selected_bulb.id %}">Open Manage Access</a>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>User</th>
+              <th>Role</th>
+              <th>Added</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for entry in access_entries %}
+              <tr>
+                <td>{{ entry.user.username }}{% if entry.user.email %}<br><span class="muted">{{ entry.user.email }}</span>{% endif %}</td>
+                <td>{{ entry.get_role_display }}</td>
+                <td>{{ entry.created_at|date:"Y-m-d g:i A" }}</td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="3" class="muted">No sharing entries found.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </section>
+      {% endif %}
     </div>
 
     <section class="card" style="margin-top:20px;">
       <h2>Existing Schedules</h2>
-
-      <div id="scheduleTableWrapper">
-        {% if schedules %}
-          <table id="scheduleTable">
-            <thead>
+      {% if schedules %}
+        <table id="scheduleTable">
+          <thead>
+            <tr>
+              <th>Status</th>
+              <th>Name</th>
+              <th>Type</th>
+              <th>Schedule</th>
+              <th>Schedule TZ</th>
+              <th>Created By Role</th>
+              <th>Action</th>
+              <th>Next Run</th>
+              <th>Last Run</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="scheduleTableBody">
+            {% for s in schedules %}
               <tr>
-                <th>Status</th>
-                <th>Name</th>
-                <th>Days</th>
-                <th>Time</th>
-                <th>Schedule TZ</th>
-                <th>Action</th>
-                <th>Next Run</th>
-                <th>Last Run</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody id="scheduleTableBody">
-              {% for s in schedules %}
-                <tr>
-                  <td class="{% if s.enabled %}enabled{% else %}disabled{% endif %}">
-                    {{ s.enabled|yesno:"ENABLED,DISABLED" }}
-                  </td>
-                  <td>{% if s.name %}{{ s.name }}{% else %}—{% endif %}</td>
-                  <td>{{ s.days_display }}</td>
-                  <td>{{ s.time_of_day|time:"g:i A" }}</td>
-                  <td>{{ s.timezone_name }}</td>
-                  <td>
-                    {% if s.target_is_on %}
-                      Turn ON
-                      {% if s.target_brightness is not None %}
-                        <br>Brightness: {{ s.target_brightness }}%
-                      {% endif %}
-                    {% else %}
-                      Turn OFF
-                    {% endif %}
-                  </td>
-                  <td>{% if s.next_run_at %}{{ s.next_run_at|date:"Y-m-d g:i A T" }}{% else %}—{% endif %}</td>
-                  <td>{% if s.last_run_at %}{{ s.last_run_at|date:"Y-m-d g:i A T" }}{% else %}—{% endif %}</td>
-                  <td>
+                <td class="{% if s.enabled %}enabled{% else %}disabled{% endif %}">{{ s.enabled|yesno:"ENABLED,DISABLED" }}</td>
+                <td>{{ s.name|default:"—" }}</td>
+                <td>{% if s.repeat %}Repeating{% else %}One-time{% endif %}</td>
+                <td>
+                  {% if s.repeat %}
+                    {{ s.days_display }}<br>{{ s.time_of_day|time:"g:i A" }}
+                  {% else %}
+                    {{ s.scheduled_for|date:"Y-m-d g:i A" }}
+                  {% endif %}
+                </td>
+                <td>{{ s.timezone_name }}</td>
+                <td>{{ s.created_by_role|default:"—"|title }}</td>
+                <td>
+                  {% if s.target_is_on %}
+                    Turn ON{% if s.target_brightness is not None %}<br>Brightness: {{ s.target_brightness }}%{% endif %}
+                  {% else %}
+                    Turn OFF
+                  {% endif %}
+                </td>
+                <td>{% if s.next_run_at %}{{ s.next_run_at|date:"Y-m-d g:i A T" }}{% else %}—{% endif %}</td>
+                <td>{% if s.last_run_at %}{{ s.last_run_at|date:"Y-m-d g:i A T" }}{% else %}—{% endif %}</td>
+                <td>
+                  {% if can_manage or s.created_by_id == request.user.id %}
                     <div class="btn-row" style="margin:0;">
                       <form method="post" action="{% url 'toggle_schedule' s.id %}" style="display:inline;">
                         {% csrf_token %}
                         <input type="hidden" name="next" value="{{ request.path }}?bulb={{ selected_bulb.id }}">
-                        <button class="btn btn-secondary" type="submit">
-                          {% if s.enabled %}Disable{% else %}Enable{% endif %}
-                        </button>
+                        <button class="btn btn-secondary" type="submit">{% if s.enabled %}Disable{% else %}Enable{% endif %}</button>
                       </form>
-
                       <form method="post" action="{% url 'delete_schedule' s.id %}" style="display:inline;" onsubmit="return confirm('Delete this schedule?');">
                         {% csrf_token %}
                         <input type="hidden" name="next" value="{{ request.path }}?bulb={{ selected_bulb.id }}">
                         <button class="btn btn-danger" type="submit">Delete</button>
                       </form>
                     </div>
-                  </td>
-                </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-          <p id="noSchedulesMessage" class="muted" style="display:none;">No schedules yet.</p>
-        {% else %}
-          <table style="display:none;" id="scheduleTable">
-            <thead>
-              <tr>
-                <th>Status</th>
-                <th>Name</th>
-                <th>Days</th>
-                <th>Time</th>
-                <th>Schedule TZ</th>
-                <th>Action</th>
-                <th>Next Run</th>
-                <th>Last Run</th>
-                <th>Actions</th>
+                  {% else %}
+                    <span class="muted">View only</span>
+                  {% endif %}
+                </td>
               </tr>
-            </thead>
-            <tbody id="scheduleTableBody"></tbody>
-          </table>
-          <p id="noSchedulesMessage" class="muted">No schedules yet.</p>
-        {% endif %}
-      </div>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <p class="muted">No schedules yet.</p>
+      {% endif %}
     </section>
+
+    <div class="grid" style="margin-top:20px;">
+      <section class="card">
+        <h2>Activity Report</h2>
+        <form method="get" class="form-actions" style="align-items:flex-end;">
+          <input type="hidden" name="bulb" value="{{ selected_bulb.id }}">
+          <div class="form-group" style="flex:1 1 220px;">
+            <label for="activity_start">Start</label>
+            <input type="datetime-local" id="activity_start" name="activity_start" value="{{ activity_report.start_raw }}">
+          </div>
+          <div class="form-group" style="flex:1 1 220px;">
+            <label for="activity_end">End</label>
+            <input type="datetime-local" id="activity_end" name="activity_end" value="{{ activity_report.end_raw }}">
+          </div>
+          <div class="form-group" style="flex:1 1 180px;">
+            <label for="activity_outcome">Outcome</label>
+            <select id="activity_outcome" name="activity_outcome">
+              <option value="">All</option>
+              <option value="accepted" {% if activity_report.outcome == 'accepted' %}selected{% endif %}>Accepted</option>
+              <option value="rejected" {% if activity_report.outcome == 'rejected' %}selected{% endif %}>Rejected</option>
+              <option value="skipped" {% if activity_report.outcome == 'skipped' %}selected{% endif %}>Skipped</option>
+              <option value="reported" {% if activity_report.outcome == 'reported' %}selected{% endif %}>Reported</option>
+            </select>
+          </div>
+          <button class="btn btn-primary" type="submit">Filter</button>
+        </form>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Time</th>
+              <th>Source</th>
+              <th>Actor</th>
+              <th>Action</th>
+              <th>Outcome</th>
+              <th>Reason</th>
+              <th>Result</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in activity_report.rows %}
+              <tr>
+                <td>{{ item.created_at|date:"Y-m-d g:i A T" }}</td>
+                <td>{{ item.source_type|title }}</td>
+                <td>{% if item.user %}{{ item.user.username }}{% else %}System / Device{% endif %}<br><span class="muted">{{ item.actor_role|default:"—"|title }}</span></td>
+                <td>{{ item.action }}</td>
+                <td class="{% if item.outcome == 'accepted' or item.outcome == 'reported' %}enabled{% else %}disabled{% endif %}">{{ item.outcome|title }}</td>
+                <td>{{ item.reason|default:"—" }}</td>
+                <td>
+                  {% if item.resulting_is_on is not None %}
+                    {{ item.resulting_is_on|yesno:"ON,OFF" }} / {{ item.resulting_brightness|default:"—" }}%
+                  {% else %}
+                    —
+                  {% endif %}
+                </td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="7" class="muted">No activity records in this range.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </section>
+
+      <section class="card">
+        <h2>Power Usage Report</h2>
+        <form method="get" class="form-actions" style="align-items:flex-end;">
+          <input type="hidden" name="bulb" value="{{ selected_bulb.id }}">
+          <div class="form-group" style="flex:1 1 220px;">
+            <label for="power_start">Start</label>
+            <input type="datetime-local" id="power_start" name="power_start" value="{{ power_report.start_raw }}">
+          </div>
+          <div class="form-group" style="flex:1 1 220px;">
+            <label for="power_end">End</label>
+            <input type="datetime-local" id="power_end" name="power_end" value="{{ power_report.end_raw }}">
+          </div>
+          <button class="btn btn-primary" type="submit">Filter</button>
+        </form>
+
+        <p><strong>Energy in Range:</strong> {{ power_report.summary.energy_display }}</p>
+        <p><strong>Average Power:</strong> {{ power_report.summary.average_power_display }}</p>
+        <p><strong>Peak Power:</strong> {{ power_report.summary.peak_power_display }}</p>
+        <p class="muted">Readings used: {{ power_report.summary.reading_count }}</p>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Time</th>
+              <th>Current RMS</th>
+              <th>Voltage</th>
+              <th>Estimated Power</th>
+              <th>Cumulative Energy</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for reading in power_report.rows %}
+              <tr>
+                <td>{{ reading.created_at|date:"Y-m-d g:i A T" }}</td>
+                <td>{{ reading.current_rms|floatformat:3 }} A</td>
+                <td>{{ reading.estimated_voltage|floatformat:1 }} V</td>
+                <td>{{ reading.estimated_power_w|floatformat:2 }} W</td>
+                <td>{{ reading.cumulative_energy_wh|floatformat:2 }} Wh</td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="5" class="muted">No power readings in this range.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </section>
+    </div>
 
     <div id="scheduleModal" class="modal-overlay" style="display:none;">
       <div class="modal-card">
         <div class="modal-header">
-          <h2>Create Weekly Schedule</h2>
+          <h2>Create Schedule</h2>
           <button type="button" class="modal-close" id="closeScheduleModal">&times;</button>
         </div>
 
         <form method="post">
           {% csrf_token %}
+          <input type="hidden" name="form_type" value="schedule">
+          <input type="hidden" name="bulb_id" value="{{ selected_bulb.id }}">
+
+          {{ form.timezone_name }}
 
           <div class="form-group">
             <label for="{{ form.name.id_for_label }}">Schedule Name</label>
             {{ form.name }}
-            <div class="muted">Optional, but helpful for remembering what it does.</div>
+          </div>
+
+          <div class="form-group">
+            <label>Schedule Type</label>
+            <div class="weekday-grid">{{ form.schedule_kind }}</div>
           </div>
 
           <div class="form-group">
@@ -244,72 +366,54 @@
           <div class="form-group">
             <label for="{{ form.target_brightness.id_for_label }}">Brightness</label>
             {{ form.target_brightness }}
-            <small id="brightness-help" class="form-help">
-              Enter a value between 1 and 100.
-            </small>
+            <small id="brightness-help" class="helptext">Brightness is required only when the schedule turns the light on.</small>
           </div>
 
-          <div class="form-group">
-            <label for="{{ form.time_of_day.id_for_label }}">Time of Day</label>
-            {{ form.time_of_day }}
+          <div class="form-group" id="dashboard-one-time-fields">
+            <label for="{{ form.scheduled_for.id_for_label }}">One-time date and time</label>
+            {{ form.scheduled_for }}
           </div>
 
-          <div class="form-group">
-            <label>Repeat On</label>
-            <div class="weekday-grid">
-              <label>{{ form.monday }} Mon</label>
-              <label>{{ form.tuesday }} Tue</label>
-              <label>{{ form.wednesday }} Wed</label>
-              <label>{{ form.thursday }} Thu</label>
-              <label>{{ form.friday }} Fri</label>
-              <label>{{ form.saturday }} Sat</label>
-              <label>{{ form.sunday }} Sun</label>
+          <div id="dashboard-weekly-fields">
+            <div class="form-group">
+              <label for="{{ form.time_of_day.id_for_label }}">Recurring time of day</label>
+              {{ form.time_of_day }}
+            </div>
+
+            <div class="form-group">
+              <label>Repeat On</label>
+              <div class="weekday-grid">
+                <label>{{ form.monday }} Mon</label>
+                <label>{{ form.tuesday }} Tue</label>
+                <label>{{ form.wednesday }} Wed</label>
+                <label>{{ form.thursday }} Thu</label>
+                <label>{{ form.friday }} Fri</label>
+                <label>{{ form.saturday }} Sat</label>
+                <label>{{ form.sunday }} Sun</label>
+              </div>
             </div>
           </div>
 
           <div class="form-group">
             <label>{{ form.enabled }} Enabled</label>
           </div>
+          <div class="muted" style="margin-bottom:12px;">This schedule will execute in timezone <strong>{{ form.timezone_name.value|default:"UTC" }}</strong>.</div>
 
           {% if form.errors %}
-            <div class="alert alert-error" style="margin-top:14px;">
-              {{ form.errors }}
-            </div>
+            <div class="alert alert-error">{{ form.errors }}</div>
           {% endif %}
 
-          <div class="form-actions" style="margin-top:16px;">
+          <div class="form-actions">
             <button class="btn btn-primary" type="submit">Create Schedule</button>
             <button class="btn btn-secondary" type="button" id="cancelScheduleModal">Cancel</button>
           </div>
         </form>
       </div>
     </div>
-
-  {% elif not request.user.is_authenticated %}
-    <section class="card">
-      <h2>Account Access</h2>
-      <p>Please log in or create an account to access the smart light dashboard.</p>
-      <div class="btn-row">
-        <a class="btn btn-primary" href="{% url 'login' %}">Log In</a>
-        <a class="btn btn-secondary" href="{% url 'register' %}">Create Account</a>
-      </div>
-    </section>
-
-  {% elif request.user.is_authenticated and not bulbs %}
-    <section class="card">
-      <h2>No Bulbs Yet</h2>
-      <p>
-        Your account does not currently have any bulbs assigned to it.
-      </p>
-    </section>
-
   {% else %}
     <section class="card">
       <h2>Access Restricted</h2>
-      <p>
-        You are logged in, but your account does not currently have permission to control
-        the selected bulb or manage schedules.
-      </p>
+      <p>You are logged in, but your account does not currently have permission to view the selected bulb.</p>
     </section>
   {% endif %}
 {% endblock %}
@@ -325,229 +429,121 @@
     if (parts.length === 2) return parts.pop().split(';').shift();
   }
 
-  async function setPower(on) {
+  function setFeedback(kind, message) {
+    const panel = document.getElementById("commandFeedback");
     const status = document.getElementById("status");
-    status.textContent = "Sending...";
+    if (status) status.textContent = message || "";
+    if (!panel) return;
+    panel.textContent = message || "";
+    panel.className = "status-panel is-visible " + (kind === "error" ? "is-error" : kind === "info" ? "is-info" : "is-success");
+  }
+
+  function explainDecision(data, fallbackSuccess) {
+    const reasonCode = data && data.reason_code ? String(data.reason_code) : "";
+    const serverReason = data && data.reason ? String(data.reason) : "";
+    const isAccepted = !!(data && data.ok);
+
+    if (isAccepted) {
+      if (data.overrode_existing) {
+        return {
+          kind: "success",
+          text: serverReason || "Command accepted. It overrode an existing lower-priority control."
+        };
+      }
+      return {
+        kind: "success",
+        text: serverReason || fallbackSuccess || "Command accepted."
+      };
+    }
+
+    const reasonMap = {
+      "permission_denied": "You do not have permission to control the selected bulb.",
+      "active_higher_priority_control": "Your command was rejected because a higher-priority control is currently active.",
+      "overridden_by_owner_admin": "Your command was overridden by an active owner/admin control.",
+      "superseded_by_later_command": "Your command was superseded by a later command.",
+      "device_sync_reported": "The device reported its current state, but your control request was not applied.",
+    };
+
+    return {
+      kind: "error",
+      text: serverReason || reasonMap[reasonCode] || "Request failed."
+    };
+  }
+
+  function applyState(data) {
+    const stateText = document.getElementById("stateText");
+    const brightness = document.getElementById("brightness");
+    if (stateText) {
+      stateText.textContent = data.is_on ? "ON" : "OFF";
+      stateText.className = "state-badge " + (data.is_on ? "state-on" : "state-off");
+    }
+    const brightnessValue = document.getElementById("bVal");
+    if (brightnessValue) brightnessValue.textContent = data.brightness ?? 100;
+    if (brightness) brightness.value = data.brightness ?? 100;
+  }
+
+  async function setPower(on) {
+    setFeedback("info", on ? "Sending ON command..." : "Sending OFF command...");
 
     const res = await fetch(`/api/set-power/?bulb=${selectedBulbId}`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-CSRFToken": getCookie("csrftoken"),
-      },
+      headers: {"Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken")},
       body: JSON.stringify({ on }),
     });
 
-    if (!res.ok) {
-      status.textContent = "Error: " + (await res.text());
+    const data = await res.json().catch(() => null);
+    if (!data) {
+      setFeedback("error", "Request failed.");
       return;
     }
 
-    const data = await res.json();
-    const stateText = document.getElementById("stateText");
-    stateText.textContent = data.is_on ? "ON" : "OFF";
-    stateText.className = "state-badge " + (data.is_on ? "state-on" : "state-off");
-    status.textContent = "Updated.";
+    applyState(data);
+    const explanation = explainDecision(data, on ? "Light turned on." : "Light turned off.");
+    setFeedback(explanation.kind, explanation.text);
   }
 
   async function setBrightness(brightness) {
-    const status = document.getElementById("status");
-    status.textContent = "Sending brightness...";
+    setFeedback("info", `Sending brightness command (${brightness}%)...`);
 
     const res = await fetch(`/api/set-brightness/?bulb=${selectedBulbId}`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-CSRFToken": getCookie("csrftoken"),
-      },
+      headers: {"Content-Type": "application/json", "X-CSRFToken": getCookie("csrftoken")},
       body: JSON.stringify({ brightness }),
     });
 
-    if (!res.ok) {
-      status.textContent = "Error: " + (await res.text());
+    const data = await res.json().catch(() => null);
+    if (!data) {
+      setFeedback("error", "Request failed.");
       return;
     }
 
-    const data = await res.json();
-    document.getElementById("bVal").textContent = data.brightness;
-    status.textContent = "Brightness updated.";
+    applyState(data);
+    const explanation = explainDecision(data, `Brightness updated to ${data.brightness}%.`);
+    setFeedback(explanation.kind, explanation.text);
   }
 
   async function pollForStateChange() {
     try {
-      const res = await fetch(`/api/light-state/?bulb=${selectedBulbId}`, {
-        headers: {
-          "X-Requested-With": "XMLHttpRequest"
-        }
-      });
-
+      const res = await fetch(`/api/light-state/?bulb=${selectedBulbId}`);
       if (!res.ok) return;
-
       const data = await res.json();
-
-      const stateText = document.getElementById("stateText");
-      const brightnessValue = document.getElementById("bVal");
-      const slider = document.getElementById("brightness");
-
-      if (stateText) {
-        stateText.textContent = data.is_on ? "ON" : "OFF";
-        stateText.className = "state-badge " + (data.is_on ? "state-on" : "state-off");
-      }
-
-      if (brightnessValue) {
-        brightnessValue.textContent = data.brightness ?? 100;
-      }
-
-      if (slider) {
-        slider.value = data.brightness ?? 100;
-      }
+      applyState(data);
     } catch (err) {
       console.error("State poll failed:", err);
     }
   }
 
-  async function refreshScheduleTable() {
-    try {
-      const res = await fetch(`/api/schedule-status/?bulb=${selectedBulbId}`, {
-        headers: {
-          "X-Requested-With": "XMLHttpRequest"
-        }
-      });
-
-      if (!res.ok) return;
-
-      const data = await res.json();
-
-      const tbody = document.getElementById("scheduleTableBody");
-      const noSchedulesMessage = document.getElementById("noSchedulesMessage");
-      const existingTable = document.getElementById("scheduleTable");
-
-      if (!tbody || !noSchedulesMessage || !existingTable) return;
-
-      if (!data.schedules || data.schedules.length === 0) {
-        tbody.innerHTML = "";
-        existingTable.style.display = "none";
-        noSchedulesMessage.style.display = "block";
-        return;
-      }
-
-      existingTable.style.display = "";
-      noSchedulesMessage.style.display = "none";
-      tbody.innerHTML = "";
-
-      for (const s of data.schedules) {
-        const row = document.createElement("tr");
-
-        const actionHtml = s.target_is_on
-          ? `Turn ON${s.target_brightness !== null ? `<br>Brightness: ${s.target_brightness}%` : ""}`
-          : "Turn OFF";
-
-        const actionsHtml = `
-          <div class="btn-row" style="margin:0;">
-            <form method="post" action="/schedules/toggle/${s.id}/" style="display:inline;">
-              <input type="hidden" name="csrfmiddlewaretoken" value="${getCookie("csrftoken")}">
-              <input type="hidden" name="next" value="{{ request.path }}?bulb={{ selected_bulb.id }}">
-              <button class="btn btn-secondary" type="submit">
-                ${s.enabled ? "Disable" : "Enable"}
-              </button>
-            </form>
-
-            <form method="post" action="/schedules/delete/${s.id}/" style="display:inline;" onsubmit="return confirm('Delete this schedule?');">
-              <input type="hidden" name="csrfmiddlewaretoken" value="${getCookie("csrftoken")}">
-              <input type="hidden" name="next" value="{{ request.path }}?bulb={{ selected_bulb.id }}">
-              <button class="btn btn-danger" type="submit">Delete</button>
-            </form>
-          </div>
-        `;
-
-        row.innerHTML = `
-          <td class="${s.enabled ? "enabled" : "disabled"}">
-            ${s.enabled ? "ENABLED" : "DISABLED"}
-          </td>
-          <td>${s.name || "—"}</td>
-          <td>${s.days_display || "—"}</td>
-          <td>${s.time_of_day || "—"}</td>
-          <td>${s.timezone_name || "—"}</td>
-          <td>${actionHtml}</td>
-          <td>${s.next_run_at || "—"}</td>
-          <td>${s.last_run_at || "—"}</td>
-          <td>${actionsHtml}</td>
-        `;
-
-        tbody.appendChild(row);
-      }
-    } catch (err) {
-      console.error("Schedule refresh failed:", err);
-    }
-  }
-
-  const slider = document.getElementById("brightness");
-  if (slider) {
-    slider.addEventListener("input", () => {
-      document.getElementById("bVal").textContent = slider.value;
-    });
-
-    slider.addEventListener("change", () => {
-      setBrightness(parseInt(slider.value, 10));
-    });
-  }
-
-  const onBtn = document.getElementById("onBtn");
-  const offBtn = document.getElementById("offBtn");
-
-  if (onBtn) onBtn.addEventListener("click", () => setPower(true));
-  if (offBtn) offBtn.addEventListener("click", () => setPower(false));
-
-  const scheduleModal = document.getElementById("scheduleModal");
-  const openScheduleModal = document.getElementById("openScheduleModal");
-  const closeScheduleModal = document.getElementById("closeScheduleModal");
-  const cancelScheduleModal = document.getElementById("cancelScheduleModal");
-
-  function openModal() {
-    if (scheduleModal) {
-      scheduleModal.style.display = "flex";
-    }
-  }
-
-  function closeModal() {
-    if (scheduleModal) {
-      scheduleModal.style.display = "none";
-    }
-  }
-
-  if (openScheduleModal) openScheduleModal.addEventListener("click", openModal);
-  if (closeScheduleModal) closeScheduleModal.addEventListener("click", closeModal);
-  if (cancelScheduleModal) cancelScheduleModal.addEventListener("click", closeModal);
-
-  if (scheduleModal) {
-    scheduleModal.addEventListener("click", function(event) {
-      if (event.target === scheduleModal) {
-        closeModal();
-      }
-    });
-  }
-
-  {% if form.errors %}
-    openModal();
-  {% endif %}
-
   async function refreshBulbStatuses() {
     try {
       const res = await fetch(`/api/bulb-status/`);
       if (!res.ok) return;
-
       const data = await res.json();
       const select = document.querySelector('select[name="bulb"]');
       const badge = document.getElementById("selectedBulbOnlineBadge");
-
       if (!select || !data.bulbs) return;
-
       for (const bulb of data.bulbs) {
         const option = select.querySelector(`option[value="${bulb.id}"]`);
-        if (option) {
-          option.textContent = `${bulb.name} (${bulb.is_online ? "Online" : "Offline"})`;
-        }
-
+        if (option) option.textContent = `${bulb.name} (${bulb.is_online ? "Online" : "Offline"})`;
         if (String(bulb.id) === String(selectedBulbId) && badge) {
           badge.textContent = bulb.is_online ? "Online" : "Offline";
           badge.className = bulb.is_online ? "enabled" : "disabled";
@@ -558,8 +554,18 @@
     }
   }
 
+  const slider = document.getElementById("brightness");
+  if (slider) {
+    slider.addEventListener("input", () => { document.getElementById("bVal").textContent = slider.value; });
+    slider.addEventListener("change", () => setBrightness(parseInt(slider.value, 10)));
+  }
+
+  const onBtn = document.getElementById("onBtn");
+  const offBtn = document.getElementById("offBtn");
+  if (onBtn) onBtn.addEventListener("click", () => setPower(true));
+  if (offBtn) offBtn.addEventListener("click", () => setPower(false));
+
   setInterval(pollForStateChange, 5000);
-  setInterval(refreshScheduleTable, 5000);
   setInterval(refreshBulbStatuses, 5000);
 </script>
 {% endif %}
@@ -569,10 +575,21 @@
     const lightState = document.getElementById("id_target_is_on");
     const brightness = document.getElementById("id_target_brightness");
     const helpText = document.getElementById("brightness-help");
+    const scheduleModal = document.getElementById("scheduleModal");
+    const openScheduleModal = document.getElementById("openScheduleModal");
+    const closeScheduleModal = document.getElementById("closeScheduleModal");
+    const cancelScheduleModal = document.getElementById("cancelScheduleModal");
+
+    const oneTimeRadio = document.getElementById("id_schedule_kind_0");
+    const weeklyRadio = document.getElementById("id_schedule_kind_1");
+    const oneTimeFields = document.getElementById("dashboard-one-time-fields");
+    const weeklyFields = document.getElementById("dashboard-weekly-fields");
+    const scheduledForInput = document.getElementById("id_scheduled_for");
+    const timeOfDayInput = document.getElementById("id_time_of_day");
+    const weekdayIds = ["id_monday", "id_tuesday", "id_wednesday", "id_thursday", "id_friday", "id_saturday", "id_sunday"];
 
     function updateBrightnessState() {
       if (!lightState || !brightness || !helpText) return;
-
       if (!lightState.checked) {
         brightness.value = "";
         brightness.disabled = true;
@@ -583,11 +600,38 @@
       }
     }
 
-    updateBrightnessState();
-
-    if (lightState) {
-      lightState.addEventListener("change", updateBrightnessState);
+    function updateScheduleTypeState() {
+      const isOneTime = !!(oneTimeRadio && oneTimeRadio.checked);
+      if (oneTimeFields) oneTimeFields.style.display = isOneTime ? "block" : "none";
+      if (weeklyFields) weeklyFields.style.display = isOneTime ? "none" : "block";
+      if (scheduledForInput) scheduledForInput.disabled = !isOneTime;
+      if (timeOfDayInput) timeOfDayInput.disabled = isOneTime;
+      weekdayIds.forEach(function (id) {
+        const el = document.getElementById(id);
+        if (el) el.disabled = isOneTime;
+      });
     }
+
+    function openModal() { if (scheduleModal) scheduleModal.style.display = "flex"; }
+    function closeModal() { if (scheduleModal) scheduleModal.style.display = "none"; }
+
+    updateBrightnessState();
+    updateScheduleTypeState();
+    if (lightState) lightState.addEventListener("change", updateBrightnessState);
+    if (oneTimeRadio) oneTimeRadio.addEventListener("change", updateScheduleTypeState);
+    if (weeklyRadio) weeklyRadio.addEventListener("change", updateScheduleTypeState);
+    if (openScheduleModal) openScheduleModal.addEventListener("click", openModal);
+    if (closeScheduleModal) closeScheduleModal.addEventListener("click", closeModal);
+    if (cancelScheduleModal) cancelScheduleModal.addEventListener("click", closeModal);
+    if (scheduleModal) {
+      scheduleModal.addEventListener("click", function (event) {
+        if (event.target === scheduleModal) closeModal();
+      });
+    }
+
+    {% if form.errors %}
+      openModal();
+    {% endif %}
   });
 </script>
 {% endblock %}

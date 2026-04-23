@@ -5,240 +5,84 @@
 {% block content %}
   <section class="hero">
     <h1>My Devices</h1>
-    <p>
-      View and manage your smart light controllers. Select one to control it, or claim a new device.
-    </p>
-
+    <p>View your linked bulbs, their current status, your role, and recent power summaries.</p>
     {% if request.user.is_authenticated %}
-      <div class="btn-row" style="margin-top:16px;">
-        <a class="btn btn-primary" href="{% url 'claim_bulb' %}">
-          + Claim New Device
-        </a>
+      <div class="btn-row" style="margin-top:16px; margin-bottom:0;">
+        <a class="btn btn-primary" href="{% url 'claim_bulb' %}">+ Claim New Bulb</a>
+        {% if selected_bulb %}
+          <a class="btn btn-secondary" href="{% url 'bulb_dashboard' %}?bulb={{ selected_bulb.id }}">Open Selected Dashboard</a>
+        {% endif %}
       </div>
     {% endif %}
   </section>
 
-  {% if messages %}
-    {% for message in messages %}
-      <section class="card">
-        <p>{{ message }}</p>
-      </section>
-    {% endfor %}
-  {% endif %}
+  {% if request.user.is_authenticated and bulbs %}
+    <section class="card" style="margin-bottom:20px;">
+      <h2>Account Power Summary</h2>
+      <p><strong>Current Power:</strong> {{ account_power_summary.current_power_display }}</p>
+      <p><strong>Last Hour:</strong> {{ account_power_summary.last_hour_display }}</p>
+      <p><strong>Last Day:</strong> {{ account_power_summary.last_day_display }}</p>
+      <p><strong>Last Week:</strong> {{ account_power_summary.last_week_display }}</p>
+      <p><strong>Last Month:</strong> {{ account_power_summary.last_month_display }}</p>
+      <p class="muted">Bulbs with readings: {{ account_power_summary.bulbs_with_readings }} / {{ account_power_summary.bulb_count }}</p>
+    </section>
 
-  {% if not request.user.is_authenticated %}
     <section class="card">
-      <h2>Account Access</h2>
-      <p>Please log in or create an account to manage your devices.</p>
-      <div class="btn-row">
-        <a class="btn btn-primary" href="{% url 'login' %}">Log In</a>
-        <a class="btn btn-secondary" href="{% url 'register' %}">Create Account</a>
-      </div>
+      <h2>Linked Bulbs</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Status</th>
+            <th>Your Role</th>
+            <th>Current Power</th>
+            <th>Last Day</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for bulb in bulbs %}
+            <tr {% if selected_bulb and selected_bulb.id == bulb.id %}style="background: rgba(37, 99, 235, 0.08);"{% endif %}>
+              <td>
+                {{ bulb.name }}
+                {% if selected_bulb and selected_bulb.id == bulb.id %}
+                  <br><span class="chip">Currently selected</span>
+                {% endif %}
+              </td>
+              <td class="{% if bulb.is_online %}enabled{% else %}disabled{% endif %}">{% if bulb.is_online %}Online{% else %}Offline{% endif %}</td>
+              <td>{{ bulb.user_role|default:"viewer"|title }}</td>
+              <td>{{ bulb.power_summary.current_power_display }}</td>
+              <td>{{ bulb.power_summary.last_day_display }}</td>
+              <td>
+                <div class="btn-row" style="margin:0;">
+                  <a class="btn btn-primary" href="{% url 'bulb_dashboard' %}?bulb={{ bulb.id }}">Open Dashboard</a>
+                  <a class="btn btn-secondary" href="{% url 'bulb_schedules' %}?bulb={{ bulb.id }}">Schedules</a>
+                  <a class="btn btn-secondary" href="{% url 'power_report' %}?bulb={{ bulb.id }}">Reports</a>
+                  {% if bulb.owner_id == request.user.id or bulb.user_role == "owner" or bulb.user_role == "admin" %}
+                    <a class="btn btn-secondary" href="{% url 'manage_bulb_access' bulb.id %}">Manage Access</a>
+                  {% endif %}
+                  {% if bulb.owner_id == request.user.id %}
+                    <form method="post" action="{% url 'unclaim_bulb_action' bulb.id %}" style="display:inline;" onsubmit="return confirm('Unclaim {{ bulb.name }}?');">
+                      {% csrf_token %}
+                      <button class="btn btn-danger" type="submit">Unclaim</button>
+                    </form>
+                  {% endif %}
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
     </section>
-
-  {% elif bulbs %}
+  {% elif request.user.is_authenticated %}
     <section class="card">
-      <h2>Account Energy Summary</h2>
-
-      <p>
-        <strong>Total Current Power:</strong>
-        {{ account_power_summary.current_power_display }}
-      </p>
-
-      <p>
-        <strong>Last Hour:</strong>
-        {{ account_power_summary.last_hour_display }}
-      </p>
-
-      <p>
-        <strong>Last Day:</strong>
-        {{ account_power_summary.last_day_display }}
-      </p>
-
-      <p>
-        <strong>Last Week:</strong>
-        {{ account_power_summary.last_week_display }}
-      </p>
-
-      <p>
-        <strong>Last Month:</strong>
-        {{ account_power_summary.last_month_display }}
-      </p>
-
-      <p class="muted" style="margin-top:12px;">
-        Bulbs on this account: {{ account_power_summary.bulb_count }} |
-        Bulbs with readings: {{ account_power_summary.bulbs_with_readings }}
-      </p>
+      <h2>No Bulbs Yet</h2>
+      <p>Your account does not currently have any bulbs assigned to it.</p>
     </section>
-
-    <section class="card" id="bulb-card-{{ bulb.id }}">
-      <h2>Your Devices</h2>
-
-      <div class="grid">
-        {% for bulb in bulbs %}
-          <section class="card" style="margin:0;">
-            <h3 style="margin-top:0;">{{ bulb.name }}</h3>
-
-            {% if bulb.location_name %}
-              <p class="muted" style="margin-top:-4px;">
-                {{ bulb.location_name }}
-              </p>
-            {% endif %}
-
-            <p>
-              <strong>Power:</strong>
-              <span class="state-badge {% if bulb.is_on %}state-on{% else %}state-off{% endif %}">
-                {{ bulb.is_on|yesno:"ON,OFF" }}
-              </span>
-            </p>
-
-            <p>
-              <strong>Brightness:</strong>
-              {{ bulb.brightness|default:100 }}%
-            </p>
-
-            <p>
-              <strong>Connection:</strong>
-              <span
-                id="bulb-online-badge-{{ bulb.id }}"
-                class="{% if bulb.is_online %}enabled{% else %}disabled{% endif %}"
-              >
-                {% if bulb.is_online %}Online{% else %}Offline{% endif %}
-              </span>
-            </p>
-
-            <p>
-              <strong>Last Seen:</strong>
-              <span id="bulb-last-seen-{{ bulb.id }}">
-                {% if bulb.last_seen_at %}
-                  {{ bulb.last_seen_at|date:"Y-m-d g:i A T" }}
-                {% else %}
-                  Never
-                {% endif %}
-              </span>
-            </p>
-
-            <hr style="margin:16px 0;">
-
-            <p>
-              <strong>Current Power:</strong>
-              {{ bulb.power_summary.current_power_display }}
-            </p>
-
-            <p>
-              <strong>Last Day:</strong>
-              {{ bulb.power_summary.last_day_display }}
-            </p>
-
-            <p>
-              <strong>Last Week:</strong>
-              {{ bulb.power_summary.last_week_display }}
-            </p>
-
-            <p>
-              <strong>Last Month:</strong>
-              {{ bulb.power_summary.last_month_display }}
-            </p>
-
-            {% if bulb.power_summary.has_readings %}
-              <p class="muted" style="margin-top:12px;">
-                Latest reading:
-                {% if bulb.power_summary.latest_reading_at %}
-                  {{ bulb.power_summary.latest_reading_at|date:"Y-m-d g:i A T" }}
-                {% else %}
-                  —
-                {% endif %}
-              </p>
-            {% else %}
-              <p class="muted" style="margin-top:12px;">
-                No power readings yet.
-              </p>
-            {% endif %}
-
-            {% if selected_bulb and bulb.id == selected_bulb.id %}
-              <p class="muted">
-                <strong>Currently selected</strong>
-              </p>
-            {% endif %}
-
-            <div class="btn-row">
-              <a class="btn btn-primary" href="/dashboard/?bulb={{ bulb.id }}">
-                Open Dashboard
-              </a>
-
-              <a class="btn btn-secondary" href="/bulbs/?bulb={{ bulb.id }}">
-                Select
-              </a>
-
-              {% if bulb.owner_id == request.user.id or request.user.is_superuser %}
-                <form method="post"
-                      action="{% url 'unclaim_bulb_action' bulb.id %}"
-                      onsubmit="return confirm('Remove this device from your account? It will become claimable again.');"
-                      style="display:inline;">
-                  {% csrf_token %}
-                  <button class="btn btn-danger" type="submit">Unclaim</button>
-                </form>
-              {% endif %}
-            </div>
-          </section>
-        {% endfor %}
-      </div>
-    </section>
-
   {% else %}
-    <section class="card" style="text-align:center; max-width:700px; margin:0 auto;">
-      <h2>No Devices Yet</h2>
-
-      <p>
-        You have not added any smart light controllers yet.
-      </p>
-
-      <p class="muted">
-        Power on an unclaimed controller and it should appear on the claim page for about two minutes after boot.
-      </p>
-
-      <div class="btn-row" style="justify-content:center; margin-top:18px;">
-        <a class="btn btn-primary" href="{% url 'claim_bulb' %}">
-          Claim Your First Device
-        </a>
-      </div>
+    <section class="card">
+      <h2>Please Log In</h2>
+      <p>You must be logged in to view your bulbs.</p>
     </section>
   {% endif %}
-
-<script>
-  async function refreshMyBulbStatuses() {
-    try {
-      const res = await fetch(`/api/bulb-status/`, {
-        headers: {
-          "X-Requested-With": "XMLHttpRequest"
-        }
-      });
-
-      if (!res.ok) return;
-
-      const data = await res.json();
-      if (!data.bulbs) return;
-
-      for (const bulb of data.bulbs) {
-        const badge = document.getElementById(`bulb-online-badge-${bulb.id}`);
-        const lastSeen = document.getElementById(`bulb-last-seen-${bulb.id}`);
-
-        if (badge) {
-          badge.textContent = bulb.is_online ? "Online" : "Offline";
-          badge.className = bulb.is_online ? "enabled" : "disabled";
-        }
-
-        if (lastSeen && bulb.last_seen_display) {
-          lastSeen.textContent = bulb.last_seen_display;
-        }
-      }
-    } catch (err) {
-      console.error("My bulbs status refresh failed:", err);
-    }
-  }
-
-  refreshMyBulbStatuses();
-  setInterval(refreshMyBulbStatuses, 5000);
-</script>
-
 {% endblock %}

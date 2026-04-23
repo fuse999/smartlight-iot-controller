@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% block title %}Activity Reports{% endblock %}
+{% block content %}
+<div class="hero">
+  <h1>User Control Activity Reports</h1>
+  <p>Review control attempts across manual actions, schedules, device sync, and conflict outcomes using the finalized control engine.</p>
+  {% if selected_bulb %}
+    <div class="btn-row" style="margin-top:16px; margin-bottom:0;">
+      <a class="btn btn-secondary" href="{% url 'bulb_dashboard' %}?bulb={{ selected_bulb.id }}">Back to Dashboard</a>
+      <a class="btn btn-secondary" href="{% url 'bulb_schedules' %}?bulb={{ selected_bulb.id }}">Open Schedules</a>
+      <a class="btn btn-secondary" href="{% url 'power_report' %}?bulb={{ selected_bulb.id }}">Power Reports</a>
+    </div>
+  {% endif %}
+</div>
+
+<div class="card" style="margin-bottom: 20px;">
+  <h2>Filters</h2>
+  <form method="get" class="grid" style="grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px;">
+    <div>
+      <label for="start">Start</label>
+      <input type="datetime-local" id="start" name="start" value="{{ filters.start_raw }}" />
+    </div>
+    <div>
+      <label for="end">End</label>
+      <input type="datetime-local" id="end" name="end" value="{{ filters.end_raw }}" />
+    </div>
+    <div>
+      <label for="bulb">Bulb</label>
+      <select name="bulb" id="bulb">
+        <option value="">All accessible bulbs</option>
+        {% for bulb in bulbs %}
+          <option value="{{ bulb.id }}" {% if selected_bulb and selected_bulb.id == bulb.id %}selected{% endif %}>{{ bulb.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label for="user">User</label>
+      <select name="user" id="user">
+        <option value="">All users</option>
+        {% for actor in user_options %}
+          <option value="{{ actor.id }}" {% if filters.selected_user_id == actor.id|stringformat:'s' %}selected{% endif %}>{{ actor.username }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label for="action">Action type</label>
+      <select name="action" id="action">
+        <option value="">All actions</option>
+        {% for value, label in action_choices %}
+          <option value="{{ value }}" {% if filters.action == value %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label for="status">Status</label>
+      <select name="status" id="status">
+        <option value="">All statuses</option>
+        <option value="accepted" {% if filters.status == 'accepted' %}selected{% endif %}>Accepted</option>
+        <option value="rejected" {% if filters.status == 'rejected' %}selected{% endif %}>Rejected</option>
+        <option value="conflict" {% if filters.status == 'conflict' %}selected{% endif %}>Conflict related</option>
+        <option value="reported" {% if filters.status == 'reported' %}selected{% endif %}>Reported only</option>
+      </select>
+    </div>
+    <div style="display:flex; align-items:end; gap:10px;">
+      <button class="btn btn-primary" type="submit">Apply</button>
+      <a class="btn btn-secondary" href="?start={{ filters.start_raw|urlencode }}&end={{ filters.end_raw|urlencode }}{% if selected_bulb %}&bulb={{ selected_bulb.id }}{% endif %}{% if filters.selected_user_id %}&user={{ filters.selected_user_id }}{% endif %}{% if filters.action %}&action={{ filters.action }}{% endif %}{% if filters.status %}&status={{ filters.status }}{% endif %}&export=csv">Export CSV</a>
+    </div>
+  </form>
+</div>
+
+<div class="grid" style="margin-bottom: 20px;">
+  <div class="card"><h2>{{ summary.total }}</h2><p>Total control activities</p></div>
+  <div class="card"><h2>{{ summary.accepted }}</h2><p>Accepted</p></div>
+  <div class="card"><h2>{{ summary.rejected }}</h2><p>Rejected</p></div>
+  <div class="card"><h2>{{ summary.conflict }}</h2><p>Conflict-related records</p></div>
+</div>
+
+<div class="card">
+  <h2>Activity Log</h2>
+  {% if rows %}
+    <div style="overflow-x:auto;">
+      <table style="width:100%; border-collapse: collapse; min-width: 980px;">
+        <thead>
+          <tr>
+            <th style="text-align:left; padding:10px; border-bottom:1px solid var(--border);">Timestamp</th>
+            <th style="text-align:left; padding:10px; border-bottom:1px solid var(--border);">Bulb</th>
+            <th style="text-align:left; padding:10px; border-bottom:1px solid var(--border);">User</th>
+            <th style="text-align:left; padding:10px; border-bottom:1px solid var(--border);">Source</th>
+            <th style="text-align:left; padding:10px; border-bottom:1px solid var(--border);">Action</th>
+            <th style="text-align:left; padding:10px; border-bottom:1px solid var(--border);">Outcome</th>
+            <th style="text-align:left; padding:10px; border-bottom:1px solid var(--border);">Reason Code</th>
+            <th style="text-align:left; padding:10px; border-bottom:1px solid var(--border);">Reason</th>
+            <th style="text-align:left; padding:10px; border-bottom:1px solid var(--border);">Result</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in rows %}
+            <tr>
+              <td style="padding:10px; border-bottom:1px solid var(--border);">{{ row.created_at|date:"Y-m-d g:i:s A" }}</td>
+              <td style="padding:10px; border-bottom:1px solid var(--border);">{{ row.bulb.name }}</td>
+              <td style="padding:10px; border-bottom:1px solid var(--border);">{% if row.user %}{{ row.user.username }}{% else %}—{% endif %}</td>
+              <td style="padding:10px; border-bottom:1px solid var(--border);">{{ row.source_type }}</td>
+              <td style="padding:10px; border-bottom:1px solid var(--border);">{{ row.get_action_display }}</td>
+              <td style="padding:10px; border-bottom:1px solid var(--border);">{{ row.outcome }}</td>
+              <td style="padding:10px; border-bottom:1px solid var(--border);">{{ row.reason_code|default:"—" }}</td>
+              <td style="padding:10px; border-bottom:1px solid var(--border);">{{ row.reason|default:"—" }}</td>
+              <td style="padding:10px; border-bottom:1px solid var(--border);">on={{ row.resulting_is_on|default:"—" }}, bri={{ row.resulting_brightness|default:"—" }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="muted">No control activities match the current filters.</p>
+  {% endif %}
+</div>
+{% endblock %}

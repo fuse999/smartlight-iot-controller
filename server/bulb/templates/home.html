@@ -2,71 +2,149 @@
 
 {% block title %}Home | Smart Light{% endblock %}
 
-{% block content %}
+{% block extra_head %}
+<style>
+  .landing-hero {
+    display: grid;
+    grid-template-columns: 1.3fr 1fr;
+    gap: 24px;
+    align-items: stretch;
+  }
+  .landing-kicker {
+    display:inline-block;
+    padding:8px 12px;
+    border-radius:999px;
+    background:rgba(37,99,235,.12);
+    color:var(--primary);
+    font-weight:700;
+    margin-bottom:14px;
+  }
+  .landing-hero h1 { font-size: clamp(2rem, 4vw, 3.1rem); line-height: 1.08; margin-bottom: 14px; }
+  .landing-hero p { font-size: 1.03rem; line-height: 1.65; }
+  .stats-grid, .feature-grid, .resource-grid { display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap:16px; }
+  .capability-grid { display:grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap:16px; }
+  .stat-card, .feature-card, .resource-card, .capability-card {
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:16px;
+    padding:18px;
+    box-shadow:var(--shadow);
+  }
+  .stat-card .value { font-size:1.9rem; font-weight:800; margin-bottom:6px; }
+  .stat-card .label { color:var(--muted); font-size:.92rem; }
+  .section-title { margin-bottom:18px; }
+  .section-title h2 { margin-bottom:6px; }
+  .section-title p { margin:0; color:var(--muted); }
+  .feature-list { margin:14px 0 0; padding-left: 18px; line-height:1.7; }
+  .feature-card h3, .resource-card h3, .capability-card h3 { margin-top:0; margin-bottom:8px; }
+  .feature-card p, .resource-card p, .capability-card p { color:var(--muted); line-height:1.6; }
+  .resource-link-group { display:flex; flex-wrap:wrap; gap:10px; margin-top:14px; }
+  .hero-panel {
+    background:linear-gradient(145deg, rgba(37,99,235,.12), rgba(37,99,235,.02));
+    border:1px solid var(--border);
+    border-radius:22px;
+    padding:26px;
+    box-shadow:var(--shadow);
+  }
+  .hero-side-list { margin:0; padding-left:18px; line-height:1.8; }
+  .capability-card strong { display:block; margin-bottom:6px; }
+  @media (max-width: 900px) {
+    .landing-hero,.stats-grid,.feature-grid,.resource-grid,.capability-grid { grid-template-columns: 1fr; }
+  }
+</style>
+{% endblock %}
 
-<section class="hero">
-  <h1>Welcome to the IoT Smart Light Home Page</h1>
-  <p>
-    This site showcases the status and control system for a remotely controlled IoT smart light.
-  </p>
+{% block content %}
+<section class="landing-hero" style="margin-bottom:24px;">
+  <div class="hero-panel">
+    <span class="landing-kicker">ENGR 491 / ENGR 492 Capstone Project</span>
+    <h1>Smart light control and monitoring in one place.</h1>
+    <p>This web application brings together on-demand bulb control, scheduling, access management, conflict-aware actions, power reporting, and activity tracking in a single interface.</p>
+    <div class="btn-row" style="margin-top:20px;">
+      {% if user.is_authenticated %}
+        <a class="btn btn-primary" href="{% url 'bulb_dashboard' %}{% if selected_bulb %}?bulb={{ selected_bulb.id }}{% endif %}">Open Dashboard</a>
+      {% else %}
+        <a class="btn btn-primary" href="/accounts/login/">Log In</a>
+        <a class="btn btn-secondary" href="{% url 'register' %}">Create Account</a>
+      {% endif %}
+      {% if project_links.repository_url %}
+        <a class="btn btn-secondary" href="{{ project_links.repository_url }}" target="_blank" rel="noopener">GitHub Repository</a>
+      {% endif %}
+    </div>
+  </div>
+  <div class="hero-panel">
+    <h2 style="margin-top:0;">What this system supports</h2>
+    <ul class="hero-side-list">
+      <li><strong>Manual control</strong> for turning bulbs on or off on demand.</li>
+      <li><strong>Brightness control</strong> with conflict-aware command handling.</li>
+      <li><strong>One-time and recurring schedules</strong> with timezone-aware execution.</li>
+      <li><strong>Role-based sharing</strong> for owners, admins, controllers, and viewers.</li>
+      <li><strong>Power usage reporting</strong> across the life of the system.</li>
+      <li><strong>User activity reporting</strong> for accepted, rejected, and overridden actions.</li>
+    </ul>
+  </div>
 </section>
 
-<div class="grid">
+<section class="stats-grid" style="margin-bottom:24px;">
+  <div class="stat-card"><div class="value">{{ bulb_count }}</div><div class="label">Bulbs linked to this account</div></div>
+  <div class="stat-card"><div class="value">{{ online_bulb_count }}</div><div class="label">Currently online bulbs</div></div>
+  <div class="stat-card"><div class="value">{{ active_schedule_count }}</div><div class="label">Enabled schedules across accessible bulbs</div></div>
+</section>
 
-  <section class="card">
-    <h2>Get Started</h2>
-    <p class="muted">
-      Test the light for yourself by creating an account or signing in.
-    </p>
-
-    <div class="btn-row">
-      <a class="btn btn-primary" href="/accounts/login/">Login</a>
-      <a class="btn btn-secondary" href="{% url 'register' %}">Register</a>
+<section style="margin-bottom:24px;">
+  <div class="section-title">
+    <h2>Main app areas</h2>
+    <p>The system is organized around daily control, scheduling, access management, and reporting.</p>
+  </div>
+  <div class="feature-grid">
+    <div class="feature-card">
+      <h3>Dashboard</h3>
+      <p>View a selected bulb, send manual commands, and get immediate status feedback.</p>
+      <ul class="feature-list">
+        <li>On-demand control</li>
+        <li>Brightness updates</li>
+        <li>Current device status</li>
+        <li>Conflict and permission messages</li>
+      </ul>
     </div>
-  </section>
-
-
-  <section class="card">
-    <h2>Schedules</h2>
-    <p class="muted">
-      View the current schedules for the smart light or create your own recurring schedules.
-    </p>
-
-    <div class="btn-row">
-      <a class="btn btn-primary" href="{% url 'bulb_schedules' %}">
-        View Schedules
-      </a>
+    <div class="feature-card">
+      <h3>Schedules and Access</h3>
+      <p>Create timed actions and manage who can control or view each bulb.</p>
+      <ul class="feature-list">
+        <li>One-time schedules</li>
+        <li>Weekly recurring schedules</li>
+        <li>Manage Access page</li>
+        <li>Role-based permissions</li>
+      </ul>
     </div>
-  </section>
-
-
-  <section class="card">
-    <h2>Manual Control</h2>
-    <p class="muted">
-      Control the light power state and brightness manually.
-    </p>
-
-    <div class="btn-row">
-      <a class="btn btn-primary" href="{% url 'my_bulbs' %}">
-        Open Controls
-      </a>
+    <div class="feature-card">
+      <h3>Reports</h3>
+      <p>Review power history and user activity with filters and exports.</p>
+      <ul class="feature-list">
+        <li>Power summaries</li>
+        <li>Activity filters</li>
+        <li>Conflict outcomes</li>
+        <li>CSV export</li>
+      </ul>
     </div>
-  </section>
+  </div>
+</section>
 
-
-  <section class="card">
-    <h2>Dashboard</h2>
-    <p class="muted">
-      Access the combined dashboard to control the bulb and manage schedules from one place.
-    </p>
-
-    <div class="btn-row">
-      <a class="btn btn-primary" href="{% url 'bulb_dashboard' %}">
-        Open Dashboard
-      </a>
-    </div>
-  </section>
-
-</div>
+<section style="margin-bottom:24px;">
+  <div class="section-title">
+    <h2>Core project capabilities</h2>
+    <p>These match the main design goals for the smart light system.</p>
+  </div>
+  <div class="capability-grid">
+    <div class="capability-card"><strong>1. On-demand power control</strong><p>Turn the light on or off from the web interface.</p></div>
+    <div class="capability-card"><strong>2. On-demand brightness control</strong><p>Adjust light output whenever the bulb is on.</p></div>
+    <div class="capability-card"><strong>3. Scheduling</strong><p>Set one-time and weekly timed actions.</p></div>
+    <div class="capability-card"><strong>4. User privileges</strong><p>Assign and manage access for other users.</p></div>
+    <div class="capability-card"><strong>5. Power reporting</strong><p>Review power usage over any selected date range.</p></div>
+    <div class="capability-card"><strong>6. Activity reporting</strong><p>Track user control actions and outcomes over time.</p></div>
+    <div class="capability-card"><strong>7. Conflict management</strong><p>Apply centralized rules for overrides and rejected actions.</p></div>
+    <div class="capability-card"><strong>8. Web-based interface</strong><p>Use one consistent interface for control, scheduling, sharing, and reports.</p></div>
+  </div>
+</section>
 
 {% endblock %}

@@ -1,0 +1,176 @@
+{% extends "base.html" %}
+{% block title %}Power Reports{% endblock %}
+{% block content %}
+<div class="hero">
+  <h1>Power Usage Reports</h1>
+  <p>Filter by bulb and date range, review summary cards, inspect the chart, and export the visible data as CSV.</p>
+  {% if selected_bulb %}
+    <div class="btn-row" style="margin-top:16px; margin-bottom:0;">
+      <a class="btn btn-secondary" href="{% url 'bulb_dashboard' %}?bulb={{ selected_bulb.id }}">Back to Dashboard</a>
+      <a class="btn btn-secondary" href="{% url 'bulb_schedules' %}?bulb={{ selected_bulb.id }}">Open Schedules</a>
+      <a class="btn btn-secondary" href="{% url 'activity_report' %}?bulb={{ selected_bulb.id }}">Activity Reports</a>
+    </div>
+  {% endif %}
+</div>
+
+<div class="card" style="margin-bottom: 20px;">
+  <h2>Filters</h2>
+  <form method="get" class="grid" style="grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px;">
+    <div>
+      <label for="bulb">Bulb</label>
+      <select name="bulb" id="bulb">
+        <option value="">All accessible bulbs</option>
+        {% for bulb in bulbs %}
+          <option value="{{ bulb.id }}" {% if selected_bulb and selected_bulb.id == bulb.id %}selected{% endif %}>{{ bulb.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label for="start">Start</label>
+      <input type="datetime-local" id="start" name="start" value="{{ filters.start_raw }}" />
+    </div>
+    <div>
+      <label for="end">End</label>
+      <input type="datetime-local" id="end" name="end" value="{{ filters.end_raw }}" />
+    </div>
+    <div style="display:flex; align-items:end; gap:10px;">
+      <button class="btn btn-primary" type="submit">Apply</button>
+      <a class="btn btn-secondary" href="?{% if selected_bulb %}bulb={{ selected_bulb.id }}&{% endif %}start={{ filters.start_raw|urlencode }}&end={{ filters.end_raw|urlencode }}&export=csv">Export CSV</a>
+    </div>
+  </form>
+</div>
+
+<div class="grid" style="margin-bottom: 20px;">
+  <div class="card"><h2>{{ summary.energy_display }}</h2><p>Total energy in range</p></div>
+  <div class="card"><h2>{{ summary.average_power_display }}</h2><p>Average power</p></div>
+  <div class="card"><h2>{{ summary.peak_power_display }}</h2><p>Peak power</p></div>
+  <div class="card"><h2>{{ summary.reading_count }}</h2><p>Readings across {{ bulb_count }} bulb{{ bulb_count|pluralize }}</p></div>
+</div>
+
+<div class="card" style="margin-bottom: 20px;">
+  <h2>Power Chart</h2>
+  {% if chart.points_count %}
+    <canvas id="powerChart" width="1100" height="360" style="width:100%; max-width:100%; border:1px solid var(--border); border-radius: 12px; background: var(--panel-alt);"></canvas>
+    <p class="muted" style="margin-top: 12px;">Showing average and peak power per {{ chart.bucket_kind }}.</p>
+  {% else %}
+    <p class="muted">No readings are available for the selected range.</p>
+  {% endif %}
+</div>
+
+<div class="card">
+  <h2>Recent Readings</h2>
+  {% if readings %}
+    <div style="overflow-x:auto;">
+      <table style="width:100%; border-collapse: collapse;">
+        <thead>
+          <tr>
+            <th style="text-align:left; padding:10px; border-bottom:1px solid var(--border);">Bulb</th>
+            <th style="text-align:left; padding:10px; border-bottom:1px solid var(--border);">Timestamp</th>
+            <th style="text-align:right; padding:10px; border-bottom:1px solid var(--border);">Current RMS</th>
+            <th style="text-align:right; padding:10px; border-bottom:1px solid var(--border);">Voltage</th>
+            <th style="text-align:right; padding:10px; border-bottom:1px solid var(--border);">Power</th>
+            <th style="text-align:right; padding:10px; border-bottom:1px solid var(--border);">Cumulative Energy</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for reading in readings %}
+            <tr>
+              <td style="padding:10px; border-bottom:1px solid var(--border);">{{ reading.bulb.name }}</td>
+              <td style="padding:10px; border-bottom:1px solid var(--border);">{{ reading.created_at|date:"Y-m-d g:i A" }}</td>
+              <td style="padding:10px; border-bottom:1px solid var(--border); text-align:right;">{{ reading.current_rms|floatformat:3 }} A</td>
+              <td style="padding:10px; border-bottom:1px solid var(--border); text-align:right;">{{ reading.estimated_voltage|floatformat:1 }} V</td>
+              <td style="padding:10px; border-bottom:1px solid var(--border); text-align:right;">{{ reading.estimated_power_w|floatformat:2 }} W</td>
+              <td style="padding:10px; border-bottom:1px solid var(--border); text-align:right;">{{ reading.cumulative_energy_wh|floatformat:2 }} Wh</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="muted">No power readings match the current filters.</p>
+  {% endif %}
+</div>
+
+{% if chart.points_count %}
+<script>
+(function () {
+  const labels = {{ chart.labels_json|safe }};
+  const avgValues = {{ chart.avg_values_json|safe }};
+  const peakValues = {{ chart.peak_values_json|safe }};
+  const canvas = document.getElementById('powerChart');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const width = canvas.clientWidth || 1100;
+  const height = 360;
+  canvas.width = width * dpr;
+  canvas.height = height * dpr;
+  ctx.scale(dpr, dpr);
+  canvas.style.height = height + 'px';
+
+  const pad = { left: 56, right: 20, top: 20, bottom: 52 };
+  const plotWidth = width - pad.left - pad.right;
+  const plotHeight = height - pad.top - pad.bottom;
+  const maxValue = Math.max(...avgValues, ...peakValues, 1);
+  const pointGap = labels.length > 1 ? plotWidth / (labels.length - 1) : 0;
+
+  ctx.clearRect(0, 0, width, height);
+  ctx.strokeStyle = 'rgba(107, 114, 128, 0.35)';
+  ctx.lineWidth = 1;
+  ctx.font = '12px Arial';
+  ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--muted');
+
+  for (let i = 0; i <= 4; i++) {
+    const y = pad.top + (plotHeight * i / 4);
+    ctx.beginPath();
+    ctx.moveTo(pad.left, y);
+    ctx.lineTo(width - pad.right, y);
+    ctx.stroke();
+    const value = (maxValue * (4 - i) / 4).toFixed(0);
+    ctx.fillText(value + ' W', 8, y + 4);
+  }
+
+  function drawSeries(values, stroke, fill) {
+    ctx.beginPath();
+    values.forEach((value, index) => {
+      const x = pad.left + (labels.length === 1 ? plotWidth / 2 : pointGap * index);
+      const y = pad.top + plotHeight - ((value / maxValue) * plotHeight);
+      if (index === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    });
+    ctx.strokeStyle = stroke;
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+    values.forEach((value, index) => {
+      const x = pad.left + (labels.length === 1 ? plotWidth / 2 : pointGap * index);
+      const y = pad.top + plotHeight - ((value / maxValue) * plotHeight);
+      ctx.beginPath();
+      ctx.fillStyle = fill;
+      ctx.arc(x, y, 3, 0, Math.PI * 2);
+      ctx.fill();
+    });
+  }
+
+  drawSeries(avgValues, '#2563eb', '#2563eb');
+  drawSeries(peakValues, '#dc2626', '#dc2626');
+
+  ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--muted');
+  labels.forEach((label, index) => {
+    if (labels.length > 12 && index % Math.ceil(labels.length / 12) !== 0 && index !== labels.length - 1) return;
+    const x = pad.left + (labels.length === 1 ? plotWidth / 2 : pointGap * index);
+    ctx.save();
+    ctx.translate(x, height - 10);
+    ctx.rotate(-0.4);
+    ctx.fillText(label, 0, 0);
+    ctx.restore();
+  });
+
+  ctx.fillStyle = '#2563eb';
+  ctx.fillRect(width - 200, 16, 14, 3);
+  ctx.fillText('Average', width - 180, 20);
+  ctx.fillStyle = '#dc2626';
+  ctx.fillRect(width - 110, 16, 14, 3);
+  ctx.fillText('Peak', width - 90, 20);
+})();
+</script>
+{% endif %}
+{% endblock %}

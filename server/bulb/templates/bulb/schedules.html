@@ -1,43 +1,63 @@
 {% extends "base.html" %}
 
-{% block title %}Light Schedules{% endblock %}
+{% block title %}Schedules{% endblock %}
 
 {% block content %}
-  <section class="hero">
-    <h1>Light Schedules</h1>
-    <p>Create and manage recurring weekly schedules for the smart light.</p>
+<section class="hero">
+  <h1>Schedules</h1>
+  <p>Create one-time or recurring schedules for a selected bulb.</p>
+  {% if selected_bulb %}
+    <div class="btn-row" style="margin-top:16px; margin-bottom:0;">
+      <a class="btn btn-secondary" href="{% url 'bulb_dashboard' %}?bulb={{ selected_bulb.id }}">Back to Dashboard</a>
+      <a class="btn btn-secondary" href="{% url 'power_report' %}?bulb={{ selected_bulb.id }}">Power Reports</a>
+      <a class="btn btn-secondary" href="{% url 'activity_report' %}?bulb={{ selected_bulb.id }}">Activity Reports</a>
+      {% if selected_bulb_role == 'owner' or selected_bulb_role == 'admin' %}
+        <a class="btn btn-secondary" href="{% url 'manage_bulb_access' selected_bulb.id %}">Manage Access</a>
+      {% endif %}
+    </div>
+  {% endif %}
+</section>
+
+{% if request.user.is_authenticated and bulbs %}
+  <section class="card" style="margin-bottom:20px;">
+    <h2>Select Bulb</h2>
+    <form method="get" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+      <select name="bulb" onchange="this.form.submit()">
+        {% for b in bulbs %}
+          <option value="{{ b.id }}" {% if selected_bulb and b.id == selected_bulb.id %}selected{% endif %}>{{ b.name }}</option>
+        {% endfor %}
+      </select>
+      {% if editing_schedule %}
+        <input type="hidden" name="edit" value="{{ editing_schedule.id }}">
+      {% endif %}
+    </form>
   </section>
+{% endif %}
 
-  {% if not request.user.is_authenticated %}
+{% if not request.user.is_authenticated %}
+  <section class="card">
+    <p>Please log in to manage schedules.</p>
+  </section>
+{% elif selected_bulb and can_view %}
+  <div class="grid">
     <section class="card">
-      <h2>Account Access</h2>
-      <p>Please log in or create an account to view and manage schedules.</p>
-      <div class="btn-row">
-        <a class="btn btn-primary" href="/accounts/login/">Log In</a>
-        <a class="btn btn-secondary" href="{% url 'register' %}">Create Account</a>
-      </div>
-    </section>
-
-  {% elif not can_control %}
-    <section class="card">
-      <h2>Access Restricted</h2>
-      <p>
-        You are logged in, but your account does not currently have permission
-        to manage schedules.
-      </p>
-    </section>
-
-  {% else %}
-    <div class="grid">
-      <section class="card">
-        <h2>Create Weekly Schedule</h2>
-
-        <form method="post">
+      <h2>{% if editing_schedule %}Edit Schedule{% else %}Create Schedule{% endif %}</h2>
+      {% if can_create_schedule or editing_schedule %}
+        <form method="post" id="schedule-form">
           {% csrf_token %}
+          {% if editing_schedule %}
+            <input type="hidden" name="schedule_id" value="{{ editing_schedule.id }}">
+          {% endif %}
+          {{ form.timezone_name }}
 
           <div class="form-group">
             <label for="{{ form.name.id_for_label }}">Schedule Name</label>
             {{ form.name }}
+          </div>
+
+          <div class="form-group">
+            <label>Schedule Type</label>
+            <div class="weekday-grid">{{ form.schedule_kind }}</div>
           </div>
 
           <div class="form-group">
@@ -48,160 +68,148 @@
           <div class="form-group">
             <label for="{{ form.target_brightness.id_for_label }}">Brightness</label>
             {{ form.target_brightness }}
-            <small id="brightness-help" class="form-help">
-              Enter a value between 1 and 100.
-            </small>
+            <small id="brightness-help" class="helptext">Brightness is required only when the schedule turns the light on.</small>
           </div>
 
-        <div class="form-group">
-          <label>{{ form.repeat }} Repeating Schedule</label>
-        </div>
-
-        <div class="form-group" id="scheduled-for-group">
-          <label for="{{ form.scheduled_for.id_for_label }}">Schedule For</label>
-          {{ form.scheduled_for }}
-        </div>
-
-        
-        <div id="repeat-fields" style="display:none;">
-          <div class="form-group">
-            <label for="{{ form.time_of_day.id_for_label }}">Time of Day</label>
-            {{ form.time_of_day }}
-        </div>
-
-          <div class="form-group">
-            <label>Repeat On</label>
-            <div class="weekday-grid">
-              <label>{{ form.monday }} Mon</label>
-              <label>{{ form.tuesday }} Tue</label>
-              <label>{{ form.wednesday }} Wed</label>
-              <label>{{ form.thursday }} Thu</label>
-              <label>{{ form.friday }} Fri</label>
-              <label>{{ form.saturday }} Sat</label>
-              <label>{{ form.sunday }} Sun</label>
+          <div id="one-time-fields">
+            <div class="form-group">
+              <label for="{{ form.scheduled_for.id_for_label }}">One-time date and time</label>
+              {{ form.scheduled_for }}
             </div>
           </div>
+
+          <div id="weekly-fields">
+            <div class="form-group">
+              <label for="{{ form.time_of_day.id_for_label }}">Recurring time of day</label>
+              {{ form.time_of_day }}
+            </div>
+            <div class="form-group">
+              <label>Repeat On</label>
+              <div class="weekday-grid">
+                <label>{{ form.monday }} Mon</label>
+                <label>{{ form.tuesday }} Tue</label>
+                <label>{{ form.wednesday }} Wed</label>
+                <label>{{ form.thursday }} Thu</label>
+                <label>{{ form.friday }} Fri</label>
+                <label>{{ form.saturday }} Sat</label>
+                <label>{{ form.sunday }} Sun</label>
+              </div>
+            </div>
           </div>
 
           <div class="form-group">
             <label>{{ form.enabled }} Enabled</label>
           </div>
+          <div class="muted" style="margin-bottom:12px;">This schedule will execute in timezone <strong>{{ form.timezone_name.value|default:"UTC" }}</strong>.</div>
 
           {% if form.errors %}
-            <div class="alert alert-error">
-              {{ form.errors }}
-            </div>
+            <div class="alert alert-error">{{ form.errors }}</div>
           {% endif %}
-
           <div class="form-actions">
-            <button class="btn btn-primary" type="submit">Create Schedule</button>
-            <a class="btn btn-secondary" href="{% url 'bulb_dashboard' %}">Back to Dashboard</a>
+            <button class="btn btn-primary" type="submit">{% if editing_schedule %}Save Changes{% else %}Create Schedule{% endif %}</button>
+            {% if editing_schedule %}
+              <a class="btn btn-secondary" href="{% url 'bulb_schedules' %}?bulb={{ selected_bulb.id }}">Cancel Edit</a>
+            {% else %}
+              <a class="btn btn-secondary" href="{% url 'bulb_dashboard' %}?bulb={{ selected_bulb.id }}">Back to Dashboard</a>
+            {% endif %}
           </div>
         </form>
-      </section>
+      {% else %}
+        <p class="muted">You can view schedules for this bulb, but cannot create new ones.</p>
+      {% endif %}
+    </section>
 
-      <section class="card">
-        <h2>Existing Schedules</h2>
-
-        {% if schedules %}
-          <table>
-            <thead>
+    <section class="card">
+      <h2>Existing Schedules</h2>
+      <p class="muted">This view stays scoped to the bulb you selected so schedule management is easier during a demo.</p>
+      {% if schedules %}
+        <table>
+          <thead>
+            <tr>
+              <th>Status</th>
+              <th>Name</th>
+              <th>Type</th>
+              <th>Schedule</th>
+              <th>Action</th>
+              <th>Next Run</th>
+              <th>Last Run</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for s in schedules %}
               <tr>
-                <th>Status</th>
-                <th>Name</th>
-                <th>Type</th>
-                <th>Schedule</th>
-                <th>Schedule TZ</th>
-                <th>Action</th>
-                <th>Next Run</th>
-                <th>Last Run</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for s in schedules %}
-                <tr>
-                  <td class="{% if s.enabled %}enabled{% else %}disabled{% endif %}">
-                    {{ s.enabled|yesno:"ENABLED,DISABLED" }}
-                  </td>
-
-                  <td>{{ s.name|default:"—" }}</td>
-
-                  <td>
-                    {% if s.repeat %}
-                      Repeating
-                    {% else %}
-                      One-time
-                    {% endif %}
-                  </td>
-
-                  <td>
-                    {% if s.repeat %}
-                      {{ s.days_display }}<br>
-                      {{ s.time_of_day|time:"g:i A" }}
-                    {% else %}
-                      {{ s.scheduled_for|date:"Y-m-d g:i A" }}
-                    {% endif %}
-                  </td>
-
-                  <td>{{ s.timezone_name }}</td>
-
-                  <td>
-                    {% if s.target_is_on %}
-                      Turn ON
-                      {% if s.target_brightness is not None %}
-                        <br>Brightness: {{ s.target_brightness }}%
-                      {% endif %}
-                    {% else %}
-                      Turn OFF
-                    {% endif %}
-                  </td>
-
-                  <td>{{ s.next_run_at|date:"Y-m-d g:i A T"|default:"—" }}</td>
-                  <td>{{ s.last_run_at|date:"Y-m-d g:i A T"|default:"—" }}</td>
-
-                  <td>
-                    <div class="btn-row" style="margin: 0;">
+                <td class="{% if s.enabled %}enabled{% else %}disabled{% endif %}">{{ s.enabled|yesno:"ENABLED,DISABLED" }}</td>
+                <td>{{ s.name|default:"—" }}</td>
+                <td>{% if s.repeat %}Repeating{% else %}One-time{% endif %}</td>
+                <td>
+                  {% if s.repeat %}
+                    {{ s.days_display }}<br>{{ s.time_of_day|time:"g:i A" }}
+                  {% else %}
+                    {{ s.scheduled_for|date:"Y-m-d g:i A" }}
+                  {% endif %}
+                  <br><span class="muted">{{ s.timezone_name }}</span>
+                </td>
+                <td>
+                  {% if s.target_is_on %}
+                    Turn ON{% if s.target_brightness is not None %}<br>Brightness: {{ s.target_brightness }}%{% endif %}
+                  {% else %}
+                    Turn OFF
+                  {% endif %}
+                </td>
+                <td>{% if s.next_run_at %}{{ s.next_run_at|date:"Y-m-d g:i A T" }}{% else %}—{% endif %}</td>
+                <td>{% if s.last_run_at %}{{ s.last_run_at|date:"Y-m-d g:i A T" }}{% else %}—{% endif %}</td>
+                <td>
+                  {% if can_manage or s.created_by_id == request.user.id %}
+                    <div class="btn-row" style="margin:0;">
+                      <a class="btn btn-secondary" href="{% url 'bulb_schedules' %}?bulb={{ selected_bulb.id }}&edit={{ s.id }}">Edit</a>
                       <form method="post" action="{% url 'toggle_schedule' s.id %}" style="display:inline;">
                         {% csrf_token %}
-                        <input type="hidden" name="next" value="{{ request.path }}">
-                        <button class="btn btn-secondary" type="submit">
-                          {% if s.enabled %}Disable{% else %}Enable{% endif %}
-                        </button>
+                        <input type="hidden" name="next" value="{{ request.path }}?bulb={{ selected_bulb.id }}">
+                        <button class="btn btn-secondary" type="submit">{% if s.enabled %}Disable{% else %}Enable{% endif %}</button>
                       </form>
-
-                      <form
-                        method="post"
-                        action="{% url 'delete_schedule' s.id %}"
-                        style="display:inline;"
-                        onsubmit="return confirm('Delete this schedule?');">
+                      <form method="post" action="{% url 'delete_schedule' s.id %}" style="display:inline;" onsubmit="return confirm('Delete this schedule?');">
                         {% csrf_token %}
-                        <input type="hidden" name="next" value="{{ request.path }}">
+                        <input type="hidden" name="next" value="{{ request.path }}?bulb={{ selected_bulb.id }}">
                         <button class="btn btn-danger" type="submit">Delete</button>
                       </form>
                     </div>
-                  </td>
-                </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        {% else %}
-          <p class="muted">No schedules yet.</p>
-        {% endif %}
-      </section>
-    </div>
-  {% endif %}
+                  {% else %}
+                    <span class="muted">View only</span>
+                  {% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <p class="muted">No schedules yet.</p>
+      {% endif %}
+    </section>
+  </div>
+{% else %}
+  <section class="card">
+    <p>Your account does not currently have access to a bulb schedule page.</p>
+  </section>
+{% endif %}
+{% endblock %}
+
+{% block extra_scripts %}
 <script>
   document.addEventListener("DOMContentLoaded", function () {
-    const repeatToggle = document.getElementById("id_repeat");
-    const scheduledForGroup = document.getElementById("scheduled-for-group");
-    const repeatFields = document.getElementById("repeat-fields");
-
     const lightState = document.getElementById("id_target_is_on");
     const brightness = document.getElementById("id_target_brightness");
     const helpText = document.getElementById("brightness-help");
+    const oneTimeFields = document.getElementById("one-time-fields");
+    const weeklyFields = document.getElementById("weekly-fields");
+    const oneTimeRadio = document.getElementById("id_schedule_kind_0");
+    const weeklyRadio = document.getElementById("id_schedule_kind_1");
+    const scheduledFor = document.getElementById("id_scheduled_for");
+    const timeOfDay = document.getElementById("id_time_of_day");
+    const weekdayIds = ["id_monday", "id_tuesday", "id_wednesday", "id_thursday", "id_friday", "id_saturday", "id_sunday"];
 
     function updateBrightnessState() {
+      if (!lightState || !brightness || !helpText) return;
       if (!lightState.checked) {
         brightness.value = "";
         brightness.disabled = true;
@@ -212,21 +220,24 @@
       }
     }
 
-    function updateScheduleMode() {
-      if (repeatToggle.checked) {
-        scheduledForGroup.style.display = "none";
-        repeatFields.style.display = "block";
-      } else {
-        scheduledForGroup.style.display = "block";
-        repeatFields.style.display = "none";
-      }
+    function updateScheduleTypeState() {
+      const isOneTime = !!(oneTimeRadio && oneTimeRadio.checked);
+      if (oneTimeFields) oneTimeFields.style.display = isOneTime ? "block" : "none";
+      if (weeklyFields) weeklyFields.style.display = isOneTime ? "none" : "block";
+
+      if (scheduledFor) scheduledFor.disabled = !isOneTime;
+      if (timeOfDay) timeOfDay.disabled = isOneTime;
+      weekdayIds.forEach(function (id) {
+        const el = document.getElementById(id);
+        if (el) el.disabled = isOneTime;
+      });
     }
 
     updateBrightnessState();
-    updateScheduleMode();
-
-    lightState.addEventListener("change", updateBrightnessState);
-    repeatToggle.addEventListener("change", updateScheduleMode);
+    updateScheduleTypeState();
+    if (lightState) lightState.addEventListener("change", updateBrightnessState);
+    if (oneTimeRadio) oneTimeRadio.addEventListener("change", updateScheduleTypeState);
+    if (weeklyRadio) weeklyRadio.addEventListener("change", updateScheduleTypeState);
   });
 </script>
 {% endblock %}
